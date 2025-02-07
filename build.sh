@@ -138,13 +138,13 @@ with app.app_context():
                 if needs_update:
                     print("Atualizando estrutura da tabela de usuários preservando dados...")
                     sql_commands = """
-                        -- Verificar se a tabela certificado existe e fazer backup
-                        DO $$
+                        -- Verificar e fazer backup das tabelas existentes
+                        DO $block$ 
                         BEGIN
-                            IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'certificado') THEN
-                                CREATE TABLE certificado_backup AS SELECT * FROM certificado;
+                            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'certificado') THEN
+                                EXECUTE 'CREATE TABLE certificado_backup AS SELECT * FROM certificado';
                             END IF;
-                        END $$;
+                        END $block$;
 
                         -- Backup da tabela user
                         CREATE TABLE user_backup AS SELECT * FROM "user";
@@ -183,13 +183,13 @@ with app.app_context():
                         CREATE UNIQUE INDEX unique_cnpj_per_user ON certificado (cnpj, user_id);
 
                         -- Restaurar dados do certificado se existir backup
-                        DO $$
+                        DO $block$
                         BEGIN
-                            IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'certificado_backup') THEN
-                                INSERT INTO certificado SELECT * FROM certificado_backup;
-                                DROP TABLE certificado_backup;
+                            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'certificado_backup') THEN
+                                EXECUTE 'INSERT INTO certificado SELECT * FROM certificado_backup';
+                                EXECUTE 'DROP TABLE certificado_backup';
                             END IF;
-                        END $$;
+                        END $block$;
 
                         -- Limpar backup do user
                         DROP TABLE user_backup;
