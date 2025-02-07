@@ -193,12 +193,56 @@ def index():
 def listar_certificados():
     try:
         logger.info('Listing certificates')
-        certificados = Certificado.query.filter_by(user_id=current_user.id).all()
-        # Atualiza o status de todos os certificados antes de exibir
+        
+        # Obter parâmetros de busca e filtro
+        search_query = request.args.get('search', '').strip()
+        data_inicial = request.args.get('data_inicial', '')
+        data_final = request.args.get('data_final', '')
+        
+        # Iniciar a query base
+        query = Certificado.query.filter_by(user_id=current_user.id)
+        
+        # Aplicar busca se houver termo de pesquisa
+        if search_query:
+            search_term = f"%{search_query}%"
+            query = query.filter(
+                db.or_(
+                    Certificado.nome_fantasia.ilike(search_term),
+                    Certificado.razao_social.ilike(search_term),
+                    Certificado.cnpj.ilike(search_term)
+                )
+            )
+        
+        # Aplicar filtro de data se as datas forem fornecidas
+        if data_inicial:
+            try:
+                data_inicial = datetime.strptime(data_inicial, '%Y-%m-%d')
+                query = query.filter(Certificado.data_validade >= data_inicial)
+            except ValueError:
+                flash('Data inicial inválida', 'warning')
+        
+        if data_final:
+            try:
+                data_final = datetime.strptime(data_final, '%Y-%m-%d')
+                # Adiciona 1 dia à data final para incluir todo o último dia
+                data_final = data_final + timedelta(days=1)
+                query = query.filter(Certificado.data_validade < data_final)
+            except ValueError:
+                flash('Data final inválida', 'warning')
+        
+        # Executar a query
+        certificados = query.all()
+        
+        # Atualizar status dos certificados
         for certificado in certificados:
             certificado.atualizar_status()
         db.session.commit()
-        return render_template('certificados.html', certificados=certificados)
+        
+        return render_template('certificados.html', 
+                             certificados=certificados,
+                             search_query=search_query,
+                             data_inicial=request.args.get('data_inicial', ''),
+                             data_final=request.args.get('data_final', ''))
     except Exception as e:
         logger.error(f'Error in listar_certificados route: {str(e)}')
         return render_template('500.html'), 500

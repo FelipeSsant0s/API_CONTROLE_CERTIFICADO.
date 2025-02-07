@@ -22,6 +22,58 @@
 </div>
 
 <div class="container mt-4">
+    <!-- Search and Filter Form -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="GET" class="row g-3">
+                <!-- Search Field -->
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-search"></i>
+                        </span>
+                        <input type="text" class="form-control" name="search" 
+                               value="{{ search_query }}"
+                               placeholder="Buscar por Nome Fantasia, Razão Social ou CNPJ">
+                    </div>
+                </div>
+                
+                <!-- Date Filter -->
+                <div class="col-md-3">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-calendar-alt"></i>
+                        </span>
+                        <input type="date" class="form-control" name="data_inicial" 
+                               value="{{ data_inicial }}"
+                               placeholder="Data Inicial">
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="input-group">
+                        <span class="input-group-text">
+                            <i class="fas fa-calendar-alt"></i>
+                        </span>
+                        <input type="date" class="form-control" name="data_final" 
+                               value="{{ data_final }}"
+                               placeholder="Data Final">
+                    </div>
+                </div>
+                
+                <!-- Filter Buttons -->
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-filter me-2"></i>Filtrar
+                    </button>
+                    <a href="{{ url_for('listar_certificados') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-times me-2"></i>Limpar Filtros
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- Alert Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
@@ -34,6 +86,20 @@
             {% endfor %}
         {% endif %}
     {% endwith %}
+
+    <!-- Results Summary -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <p class="text-muted mb-0">
+            <i class="fas fa-list me-2"></i>
+            {% if certificados|length == 0 %}
+                Nenhum certificado encontrado
+            {% elif certificados|length == 1 %}
+                1 certificado encontrado
+            {% else %}
+                {{ certificados|length }} certificados encontrados
+            {% endif %}
+        </p>
+    </div>
 
     <!-- Certificates Table -->
     <div class="card">
