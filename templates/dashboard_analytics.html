@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-end mb-3">
+            <a href="{{ url_for('lista_clientes') }}" class="btn btn-primary">
+                <i class="fas fa-list me-2"></i>Voltar para Lista
+            </a>
+        </div>
+        <div class="row justify-content-center">
+            <!-- Gráfico de Pizza -->
+            <div class="col-md-5">
+                <div class="card" style="height: 400px;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-pie me-2"></i>Status dos Certificados</h5>
+                    </div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <canvas id="pieChart" style="max-width: 100%; max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+            <!-- Gráfico de Barras -->
+            <div class="col-md-5">
+                <div class="card" style="height: 400px;">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="fas fa-chart-bar me-2"></i>Vencimentos por Mês</h5>
+                    </div>
+                    <div class="card-body d-flex align-items-center justify-content-center">
+                        <canvas id="barChart" style="max-width: 100%; max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <!-- Cards de Resumo -->
+        <div class="row justify-content-center mt-4">
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body py-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-circle fa-2x me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-0">Vencidos</h6>
+                                <h4 class="mb-0">{{ stats.vencidos }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-white">
+                    <div class="card-body py-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-clock fa-2x me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-0">Próximos</h6>
+                                <h4 class="mb-0">{{ stats.proximos }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body py-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle fa-2x me-3"></i>
+                            <div>
+                                <h6 class="card-title mb-0">Regulares</h6>
+                                <h4 class="mb-0">{{ stats.regulares }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    // Dados para o gráfico de pizza
+    const pieData = {
+        labels: ['Vencidos', 'Próximos ao Vencimento', 'Regulares'],
+        datasets: [{
+            data: [{{ stats.vencidos }}, {{ stats.proximos }}, {{ stats.regulares }}],
+            backgroundColor: ['#dc3545', '#ffc107', '#198754'],
+            borderWidth: 1
+        }]
+    };
+
+    // Configuração do gráfico de pizza
+    const pieConfig = {
+        type: 'pie',
+        data: pieData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12
+                    }
+                }
+            }
+        }
+    };
+
+    // Dados para o gráfico de barras
+    const barData = {
+        labels: {{ meses|tojson }},
+        datasets: [{
+            label: 'Certificados a Vencer',
+            data: {{ vencimentos_por_mes|tojson }},
+            backgroundColor: '#0d6efd',
+            borderColor: '#0d6efd',
+            borderWidth: 1
+        }]
+    };
+
+    // Configuração do gráfico de barras
+    const barConfig = {
+        type: 'bar',
+        data: barData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                }
+            },
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        boxWidth: 12
+                    }
+                }
+            }
+        }
+    };
+
+    // Criar os gráficos
+    window.addEventListener('load', function() {
+        new Chart(document.getElementById('pieChart'), pieConfig);
+        new Chart(document.getElementById('barChart'), barConfig);
+    });
+</script>
+{% endblock %} 

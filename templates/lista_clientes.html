@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="d-flex justify-content-end mb-3">
+            <a href="{{ url_for('dashboard_analytics') }}" class="btn btn-info me-2">
+                <i class="fas fa-chart-pie me-2"></i>Dashboard Analítico
+            </a>
+            <a href="{{ url_for('exportar_excel') }}" class="btn btn-success me-2">
+                <i class="fas fa-file-excel me-2"></i>Exportar para Excel
+            </a>
+            <a href="{{ url_for('dashboard') }}" class="btn btn-primary">
+                <i class="fas fa-user-plus me-2"></i>Novo Cliente
+            </a>
+        </div>
+        <div class="card">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="fas fa-list me-2"></i>Lista de Clientes</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Razão Social</th>
+                                <th>CNPJ</th>
+                                <th>Proprietário</th>
+                                <th>Telefone</th>
+                                <th>Vencimento</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for cliente in clientes %}
+                            <tr>
+                                <td>{{ cliente.id }}</td>
+                                <td>{{ cliente.razao_social }}</td>
+                                <td>{{ cliente.cnpj }}</td>
+                                <td>{{ cliente.proprietario }}</td>
+                                <td>{{ cliente.telefone }}</td>
+                                <td>{{ cliente.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                                <td>
+                                    {% set status = cliente.data_vencimento|status_vencimento %}
+                                    <span class="badge {% if status == 'VENCIDO' %}bg-danger{% elif status == 'PRÓXIMO AO VENCIMENTO' %}bg-warning{% else %}bg-success{% endif %}">
+                                        {{ status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button type="button" class="btn btn-primary btn-sm" onclick="editarCliente('{{ cliente.id }}', '{{ cliente.razao_social }}', '{{ cliente.cnpj }}', '{{ cliente.proprietario }}', '{{ cliente.telefone }}', '{{ cliente.data_vencimento.strftime('%Y-%m-%d') }}')" data-bs-toggle="modal" data-bs-target="#editarClienteModal">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <form action="{{ url_for('excluir_cliente', id=cliente.id) }}" method="POST" style="display: inline;">
+                                        <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Tem certeza que deseja excluir este cliente?')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Edição -->
+<div class="modal fade" id="editarClienteModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Editar Cliente</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form action="{{ url_for('editar_cliente') }}" method="POST" id="formEditar">
+                    <input type="hidden" id="edit_id" name="id">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_razao_social" class="form-label">Razão Social</label>
+                            <input type="text" class="form-control" id="edit_razao_social" name="razao_social" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_cnpj" class="form-label">CNPJ</label>
+                            <input type="text" class="form-control" id="edit_cnpj" name="cnpj" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_proprietario" class="form-label">Nome do Proprietário</label>
+                            <input type="text" class="form-control" id="edit_proprietario" name="proprietario" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_telefone" class="form-label">Telefone</label>
+                            <input type="text" class="form-control" id="edit_telefone" name="telefone" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="edit_data_vencimento" class="form-label">Data de Vencimento</label>
+                            <input type="date" class="form-control" id="edit_data_vencimento" name="data_vencimento" required>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="submit" form="formEditar" class="btn btn-primary">Salvar Alterações</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Função para preencher o modal de edição
+    function editarCliente(id, razaoSocial, cnpj, proprietario, telefone, dataVencimento) {
+        document.getElementById('edit_id').value = id;
+        document.getElementById('edit_razao_social').value = razaoSocial;
+        document.getElementById('edit_cnpj').value = cnpj;
+        document.getElementById('edit_proprietario').value = proprietario;
+        document.getElementById('edit_telefone').value = telefone;
+        document.getElementById('edit_data_vencimento').value = dataVencimento;
+    }
+
+    // Máscara para CNPJ
+    $('#edit_cnpj').on('input', function() {
+        let value = $(this).val().replace(/\D/g, '');
+        if (value.length <= 14) {
+            value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+            value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+            value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+            value = value.replace(/(\d{4})(\d)/, '$1-$2');
+        }
+        $(this).val(value);
+    });
+
+    // Máscara para telefone
+    $('#edit_telefone').on('input', function() {
+        let value = $(this).val().replace(/\D/g, '');
+        if (value.length <= 11) {
+            if (value.length > 2) {
+                value = '(' + value.substring(0,2) + ') ' + value.substring(2);
+            }
+            if (value.length > 10) {
+                value = value.substring(0,10) + '-' + value.substring(10);
+            }
+        }
+        $(this).val(value);
+    });
+</script>
+{% endblock %} 
