@@ -1,17 +1,12 @@
 #!/bin/bash
-# exit on error
+
+# Exit on error
 set -o errexit
 
-# Upgrade pip and install base dependencies
+# Upgrade pip and install dependencies
 python -m pip install --upgrade pip
-pip install wheel setuptools
-
-# Install openpyxl explicitly first
-pip install openpyxl==3.1.2
-pip install et-xmlfile==1.1.0
-
-# Install other dependencies
-pip install --no-cache-dir -r requirements.txt
+python -m pip install wheel setuptools
+python -m pip install --no-cache-dir -r requirements.txt
 
 # Initialize database
 python << END
