@@ -38,55 +38,60 @@
     <!-- Certificates Table -->
     <div class="card">
         <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
+            <div class="table-responsive" style="max-height: 600px; overflow-y: auto;">
+                <table class="table table-hover table-sm align-middle mb-0">
+                    <thead class="table-light sticky-top">
                         <tr>
-                            <th class="px-4">ID</th>
-                            <th>Razão Social</th>
-                            <th>Nome Fantasia</th>
-                            <th>CNPJ</th>
-                            <th>Telefone</th>
-                            <th>Data Emissão</th>
-                            <th>Data Validade</th>
-                            <th>Status</th>
-                            <th>Observações</th>
-                            <th class="text-center">Ações</th>
+                            <th class="px-2" style="width: 50px;">ID</th>
+                            <th style="width: 20%;">Razão Social</th>
+                            <th style="width: 15%;">Nome Fantasia</th>
+                            <th style="width: 15%;">CNPJ</th>
+                            <th style="width: 12%;">Telefone</th>
+                            <th style="width: 10%;">Validade</th>
+                            <th style="width: 12%;">Status</th>
+                            <th style="width: 5%;">Obs</th>
+                            <th class="text-center" style="width: 90px;">Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for certificado in certificados %}
                         <tr>
-                            <td class="px-4">{{ certificado.id }}</td>
-                            <td>{{ certificado.razao_social }}</td>
-                            <td>{{ certificado.nome_fantasia }}</td>
-                            <td>{{ certificado.cnpj }}</td>
-                            <td>{{ certificado.telefone }}</td>
-                            <td>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</td>
-                            <td>{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
+                            <td class="px-2">{{ certificado.id }}</td>
+                            <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.razao_social }}</td>
+                            <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.nome_fantasia }}</td>
+                            <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.cnpj }}</td>
+                            <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.telefone }}</td>
+                            <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
                             <td>
-                                <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% else %}bg-danger{% endif %}">
+                                <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% else %}bg-danger{% endif %}" style="font-size: 0.75rem;">
                                     <i class="fas {% if certificado.status == 'Válido' %}fa-check-circle{% elif certificado.status == 'Próximo ao Vencimento' %}fa-exclamation-circle{% else %}fa-times-circle{% endif %} me-1"></i>
                                     {{ certificado.status }}
                                 </span>
                             </td>
-                            <td>
+                            <td class="text-center">
                                 {% if certificado.observacoes %}
                                     <span data-bs-toggle="tooltip" data-bs-placement="left" title="{{ certificado.observacoes }}">
-                                        <i class="fas fa-comment-alt text-muted"></i>
+                                        <i class="fas fa-comment-alt text-muted" style="font-size: 0.875rem;"></i>
                                     </span>
                                 {% endif %}
                             </td>
                             <td class="text-center">
-                                <a href="{{ url_for('editar_certificado', id=certificado.id) }}" class="btn btn-sm btn-primary me-2" title="Editar">
-                                    <i class="fas fa-edit"></i>
-                                </a>
-                                <button type="button" class="btn btn-sm btn-danger" 
-                                        data-bs-toggle="modal" 
-                                        data-bs-target="#deleteModal{{ certificado.id }}"
-                                        title="Excluir">
-                                    <i class="fas fa-trash"></i>
-                                </button>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('editar_certificado', id=certificado.id) }}" 
+                                       class="btn btn-outline-primary btn-xs" 
+                                       style="padding: 0.15rem 0.4rem; font-size: 0.75rem;"
+                                       title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <button type="button" 
+                                            class="btn btn-outline-danger btn-xs" 
+                                            style="padding: 0.15rem 0.4rem; font-size: 0.75rem;"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#deleteModal{{ certificado.id }}"
+                                            title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
 
                                 <!-- Delete Modal -->
                                 <div class="modal fade" id="deleteModal{{ certificado.id }}" tabindex="-1">
