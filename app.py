@@ -4,6 +4,11 @@ from datetime import datetime
 import os
 import io
 import openpyxl
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger(__name__)
 
 # Create Flask application
 app = Flask(__name__)
@@ -25,74 +30,103 @@ class Certificado(db.Model):
     status = db.Column(db.String(20), nullable=False)
     observacoes = db.Column(db.Text)
 
+# Error handlers
+@app.errorhandler(404)
+def not_found_error(error):
+    logger.error(f'Page not found: {request.url}')
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    logger.error(f'Server Error: {error}')
+    db.session.rollback()
+    return render_template('500.html'), 500
+
 # Routes
 @app.route('/')
 def index():
-    return render_template('index.html')
+    try:
+        return render_template('index.html')
+    except Exception as e:
+        logger.error(f'Error in index route: {str(e)}')
+        return render_template('500.html'), 500
 
 @app.route('/certificados', methods=['GET'])
 def listar_certificados():
-    certificados = Certificado.query.all()
-    return render_template('certificados.html', certificados=certificados)
+    try:
+        certificados = Certificado.query.all()
+        return render_template('certificados.html', certificados=certificados)
+    except Exception as e:
+        logger.error(f'Error in listar_certificados route: {str(e)}')
+        return render_template('500.html'), 500
 
 @app.route('/certificados/novo', methods=['GET', 'POST'])
 def novo_certificado():
-    if request.method == 'POST':
-        nome = request.form['nome']
-        data_emissao = datetime.strptime(request.form['data_emissao'], '%Y-%m-%d')
-        data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
-        status = request.form['status']
-        observacoes = request.form['observacoes']
+    try:
+        if request.method == 'POST':
+            nome = request.form['nome']
+            data_emissao = datetime.strptime(request.form['data_emissao'], '%Y-%m-%d')
+            data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
+            status = request.form['status']
+            observacoes = request.form['observacoes']
 
-        certificado = Certificado(
-            nome=nome,
-            data_emissao=data_emissao,
-            data_validade=data_validade,
-            status=status,
-            observacoes=observacoes
-        )
+            certificado = Certificado(
+                nome=nome,
+                data_emissao=data_emissao,
+                data_validade=data_validade,
+                status=status,
+                observacoes=observacoes
+            )
 
-        db.session.add(certificado)
-        db.session.commit()
+            db.session.add(certificado)
+            db.session.commit()
 
-        flash('Certificado criado com sucesso!', 'success')
-        return redirect(url_for('listar_certificados'))
+            flash('Certificado criado com sucesso!', 'success')
+            return redirect(url_for('listar_certificados'))
 
-    return render_template('novo_certificado.html')
+        return render_template('novo_certificado.html')
+    except Exception as e:
+        logger.error(f'Error in novo_certificado route: {str(e)}')
+        db.session.rollback()
+        return render_template('500.html'), 500
 
 @app.route('/certificados/exportar')
 def exportar_certificados():
-    certificados = Certificado.query.all()
-    
-    wb = openpyxl.Workbook()
-    ws = wb.active
-    ws.title = "Certificados"
-    
-    # Headers
-    headers = ['ID', 'Nome', 'Data Emissão', 'Data Validade', 'Status', 'Observações']
-    for col, header in enumerate(headers, 1):
-        ws.cell(row=1, column=col, value=header)
-    
-    # Data
-    for row, cert in enumerate(certificados, 2):
-        ws.cell(row=row, column=1, value=cert.id)
-        ws.cell(row=row, column=2, value=cert.nome)
-        ws.cell(row=row, column=3, value=cert.data_emissao.strftime('%d/%m/%Y'))
-        ws.cell(row=row, column=4, value=cert.data_validade.strftime('%d/%m/%Y'))
-        ws.cell(row=row, column=5, value=cert.status)
-        ws.cell(row=row, column=6, value=cert.observacoes)
-    
-    # Save to bytes
-    excel_file = io.BytesIO()
-    wb.save(excel_file)
-    excel_file.seek(0)
-    
-    return send_file(
-        excel_file,
-        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        as_attachment=True,
-        download_name='certificados.xlsx'
-    )
+    try:
+        certificados = Certificado.query.all()
+        
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Certificados"
+        
+        # Headers
+        headers = ['ID', 'Nome', 'Data Emissão', 'Data Validade', 'Status', 'Observações']
+        for col, header in enumerate(headers, 1):
+            ws.cell(row=1, column=col, value=header)
+        
+        # Data
+        for row, cert in enumerate(certificados, 2):
+            ws.cell(row=row, column=1, value=cert.id)
+            ws.cell(row=row, column=2, value=cert.nome)
+            ws.cell(row=row, column=3, value=cert.data_emissao.strftime('%d/%m/%Y'))
+            ws.cell(row=row, column=4, value=cert.data_validade.strftime('%d/%m/%Y'))
+            ws.cell(row=row, column=5, value=cert.status)
+            ws.cell(row=row, column=6, value=cert.observacoes)
+        
+        # Save to bytes
+        excel_file = io.BytesIO()
+        wb.save(excel_file)
+        excel_file.seek(0)
+        
+        return send_file(
+            excel_file,
+            mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            as_attachment=True,
+            download_name='certificados.xlsx'
+        )
+    except Exception as e:
+        logger.error(f'Error in exportar_certificados route: {str(e)}')
+        return render_template('500.html'), 500
 
 if __name__ == '__main__':
     with app.app_context():

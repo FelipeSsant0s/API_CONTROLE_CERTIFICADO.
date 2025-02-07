@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="jumbotron">
+        <h1 class="display-4">Gerenciador de Certificados</h1>
+        <p class="lead">Sistema para controle e gerenciamento de certificados digitais.</p>
+        <hr class="my-4">
+        <p>Acesse o sistema para gerenciar seus certificados.</p>
+        <a class="btn btn-primary btn-lg" href="{{ url_for('listar_certificados') }}" role="button">Ver Certificados</a>
+        <a class="btn btn-success btn-lg" href="{{ url_for('novo_certificado') }}" role="button">Novo Certificado</a>
+    </div>
+</div>
+{% endblock %} 
