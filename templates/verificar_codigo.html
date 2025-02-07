@@ -7,8 +7,8 @@
             <div class="card shadow">
                 <div class="card-body p-5">
                     <div class="text-center mb-4">
-                        <i class="fas fa-certificate text-primary" style="font-size: 3rem;"></i>
-                        <h2 class="mt-3 mb-4">Login</h2>
+                        <i class="fas fa-shield-alt text-primary" style="font-size: 3rem;"></i>
+                        <h2 class="mt-3 mb-4">Verificar Código</h2>
                     </div>
 
                     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -24,45 +24,36 @@
                     {% endwith %}
 
                     <form method="POST" class="needs-validation" novalidate>
-                        <div class="mb-3">
-                            <label for="username" class="form-label">Usuário</label>
-                            <div class="input-group">
-                                <span class="input-group-text"><i class="fas fa-user"></i></span>
-                                <input type="text" class="form-control" id="username" name="username" required>
-                                <div class="invalid-feedback">
-                                    Por favor, informe seu usuário.
-                                </div>
-                            </div>
-                        </div>
-
                         <div class="mb-4">
-                            <label for="password" class="form-label">Senha</label>
+                            <label for="codigo" class="form-label">Código de Verificação</label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="fas fa-lock"></i></span>
-                                <input type="password" class="form-control" id="password" name="password" required>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="codigo" 
+                                       name="codigo" 
+                                       required
+                                       pattern="[A-F0-9]{8}"
+                                       maxlength="8"
+                                       style="letter-spacing: 0.5em; text-transform: uppercase;">
                                 <div class="invalid-feedback">
-                                    Por favor, informe sua senha.
+                                    Por favor, informe o código de verificação válido.
                                 </div>
+                            </div>
+                            <div class="form-text">
+                                Digite o código de 8 caracteres enviado para seu email.
                             </div>
                         </div>
 
-                        <div class="d-grid">
+                        <div class="d-grid gap-2">
                             <button type="submit" class="btn btn-primary btn-lg">
-                                <i class="fas fa-sign-in-alt me-2"></i>Entrar
+                                <i class="fas fa-check-circle me-2"></i>Verificar Código
                             </button>
+                            <a href="{{ url_for('recuperar_senha') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-2"></i>Voltar
+                            </a>
                         </div>
                     </form>
-
-                    <div class="text-center mt-4">
-                        <p class="mb-2">
-                            <a href="{{ url_for('recuperar_senha') }}" class="text-primary">
-                                <i class="fas fa-key me-1"></i>Esqueceu sua senha?
-                            </a>
-                        </p>
-                        <p class="mb-0">
-                            Não tem uma conta? <a href="{{ url_for('register') }}" class="text-primary">Registre-se</a>
-                        </p>
-                    </div>
                 </div>
             </div>
         </div>
@@ -85,6 +76,11 @@
         }, false)
     })
 })()
+
+// Auto-format código
+document.getElementById('codigo').addEventListener('input', function(e) {
+    e.target.value = e.target.value.toUpperCase().replace(/[^A-F0-9]/g, '');
+});
 </script>
 {% endblock %}
 {% endblock %} 

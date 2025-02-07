@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="fas fa-lock text-primary" style="font-size: 3rem;"></i>
+                        <h2 class="mt-3 mb-4">Nova Senha</h2>
+                    </div>
+
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                    <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+                                    {{ message }}
+                                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    <form method="POST" class="needs-validation" novalidate>
+                        <div class="mb-3">
+                            <label for="senha" class="form-label">Nova Senha</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="senha" 
+                                       name="senha" 
+                                       required
+                                       minlength="6">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button"
+                                        onclick="togglePassword('senha')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <div class="invalid-feedback">
+                                    A senha deve ter pelo menos 6 caracteres.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="confirmar_senha" class="form-label">Confirmar Nova Senha</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                <input type="password" 
+                                       class="form-control" 
+                                       id="confirmar_senha" 
+                                       name="confirmar_senha" 
+                                       required
+                                       minlength="6">
+                                <button class="btn btn-outline-secondary" 
+                                        type="button"
+                                        onclick="togglePassword('confirmar_senha')">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <div class="invalid-feedback">
+                                    As senhas devem coincidir.
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="fas fa-save me-2"></i>Salvar Nova Senha
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+// Form validation
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            const senha = document.getElementById('senha')
+            const confirmarSenha = document.getElementById('confirmar_senha')
+            
+            if (senha.value !== confirmarSenha.value) {
+                confirmarSenha.setCustomValidity('As senhas não coincidem')
+            } else {
+                confirmarSenha.setCustomValidity('')
+            }
+            
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+
+// Toggle password visibility
+function togglePassword(inputId) {
+    const input = document.getElementById(inputId);
+    const type = input.type === 'password' ? 'text' : 'password';
+    input.type = type;
+    
+    const icon = event.currentTarget.querySelector('i');
+    icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+}
+</script>
+{% endblock %}
+{% endblock %} 

@@ -9,6 +9,10 @@ import io
 import openpyxl
 import logging
 import sys
+import secrets
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 # Configure logging
 logging.basicConfig(
@@ -547,6 +551,167 @@ def dashboard():
     except Exception as e:
         logger.error(f'Error in dashboard route: {str(e)}')
         return render_template('500.html'), 500
+
+# Função para enviar email
+def enviar_email(destinatario, assunto, corpo):
+    try:
+        # Configurações do email (você precisará definir estas variáveis de ambiente no Render.com)
+        EMAIL_SENDER = os.environ.get('EMAIL_SENDER', 'seu-email@gmail.com')
+        EMAIL_PASSWORD = os.environ.get('EMAIL_PASSWORD', 'sua-senha-app')
+        
+        # Criar mensagem
+        msg = MIMEMultipart()
+        msg['From'] = EMAIL_SENDER
+        msg['To'] = destinatario
+        msg['Subject'] = assunto
+        
+        # Adicionar corpo
+        msg.attach(MIMEText(corpo, 'html'))
+        
+        # Conectar ao servidor SMTP do Gmail
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        
+        # Enviar email
+        server.send_message(msg)
+        server.quit()
+        return True
+    except Exception as e:
+        logger.error(f'Erro ao enviar email: {str(e)}')
+        return False
+
+# Modelo para códigos de recuperação de senha
+class RecuperacaoSenha(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    codigo = db.Column(db.String(8), nullable=False)
+    expiracao = db.Column(db.DateTime, nullable=False)
+    usado = db.Column(db.Boolean, default=False)
+
+# Rotas de Administração
+@app.route('/admin')
+@login_required
+def admin():
+    try:
+        # Apenas admin pode acessar
+        if current_user.username != 'admin':
+            abort(403)
+        
+        users = User.query.all()
+        return render_template('admin.html', users=users)
+    except Exception as e:
+        logger.error(f'Error in admin route: {str(e)}')
+        return render_template('500.html'), 500
+
+@app.route('/admin/alterar_senha/<int:user_id>', methods=['POST'])
+@login_required
+def admin_alterar_senha(user_id):
+    try:
+        # Apenas admin pode alterar
+        if current_user.username != 'admin':
+            abort(403)
+        
+        user = User.query.get_or_404(user_id)
+        nova_senha = request.form.get('nova_senha')
+        
+        if not nova_senha:
+            flash('A nova senha é obrigatória.', 'danger')
+        else:
+            user.set_password(nova_senha)
+            db.session.commit()
+            flash(f'Senha do usuário {user.username} alterada com sucesso!', 'success')
+        
+        return redirect(url_for('admin'))
+    except Exception as e:
+        logger.error(f'Error in admin_alterar_senha route: {str(e)}')
+        db.session.rollback()
+        flash('Erro ao alterar senha.', 'danger')
+        return redirect(url_for('admin'))
+
+# Rotas de Recuperação de Senha
+@app.route('/recuperar_senha', methods=['GET', 'POST'])
+def recuperar_senha():
+    if request.method == 'POST':
+        email = request.form.get('email')
+        user = User.query.filter_by(email=email).first()
+        
+        if user:
+            # Gerar código de verificação
+            codigo = secrets.token_hex(4).upper()
+            expiracao = datetime.utcnow() + timedelta(hours=1)
+            
+            # Salvar código no banco
+            recuperacao = RecuperacaoSenha(
+                user_id=user.id,
+                codigo=codigo,
+                expiracao=expiracao
+            )
+            db.session.add(recuperacao)
+            db.session.commit()
+            
+            # Enviar email
+            assunto = 'Recuperação de Senha - Gerenciador de Certificados'
+            corpo = f"""
+            <h2>Recuperação de Senha</h2>
+            <p>Olá {user.name},</p>
+            <p>Seu código de verificação é: <strong>{codigo}</strong></p>
+            <p>Este código expira em 1 hora.</p>
+            <p>Se você não solicitou a recuperação de senha, ignore este email.</p>
+            """
+            
+            if enviar_email(user.email, assunto, corpo):
+                flash('Código de verificação enviado para seu email!', 'success')
+                return redirect(url_for('verificar_codigo', user_id=user.id))
+            else:
+                flash('Erro ao enviar email. Tente novamente.', 'danger')
+        else:
+            flash('Email não encontrado.', 'danger')
+    
+    return render_template('recuperar_senha.html')
+
+@app.route('/verificar_codigo/<int:user_id>', methods=['GET', 'POST'])
+def verificar_codigo(user_id):
+    if request.method == 'POST':
+        codigo = request.form.get('codigo')
+        recuperacao = RecuperacaoSenha.query.filter_by(
+            user_id=user_id,
+            codigo=codigo,
+            usado=False
+        ).order_by(RecuperacaoSenha.expiracao.desc()).first()
+        
+        if recuperacao and recuperacao.expiracao > datetime.utcnow():
+            recuperacao.usado = True
+            db.session.commit()
+            session['reset_user_id'] = user_id  # Armazenar ID do usuário para próxima etapa
+            return redirect(url_for('nova_senha'))
+        else:
+            flash('Código inválido ou expirado.', 'danger')
+    
+    return render_template('verificar_codigo.html')
+
+@app.route('/nova_senha', methods=['GET', 'POST'])
+def nova_senha():
+    user_id = session.get('reset_user_id')
+    if not user_id:
+        return redirect(url_for('login'))
+    
+    if request.method == 'POST':
+        senha = request.form.get('senha')
+        confirmar_senha = request.form.get('confirmar_senha')
+        
+        if senha != confirmar_senha:
+            flash('As senhas não coincidem.', 'danger')
+        else:
+            user = User.query.get(user_id)
+            if user:
+                user.set_password(senha)
+                db.session.commit()
+                session.pop('reset_user_id', None)  # Limpar sessão
+                flash('Senha alterada com sucesso! Faça login com sua nova senha.', 'success')
+                return redirect(url_for('login'))
+    
+    return render_template('nova_senha.html')
 
 if __name__ == '__main__':
     app.run(debug=True) 
