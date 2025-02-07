@@ -76,10 +76,18 @@ def execute_sql_commands(connection, commands):
 def safe_execute_with_backup(connection, table_name, sql_commands, is_new_table=False):
     """Executa comandos SQL com backup de segurança e rollback em caso de erro"""
     try:
-        # Fazer backup apenas se não for uma nova tabela
-        if not is_new_table and table_name in ['user', 'certificado']:
+        # Verificar se é uma criação de nova tabela
+        if is_new_table:
+            print(f"Criando nova tabela {table_name}, backup não é necessário.")
+            with connection.begin() as transaction:
+                execute_sql_commands(connection, sql_commands)
+                print(f"Tabela {table_name} criada com sucesso!")
+            return True
+        
+        # Para atualizações de tabelas existentes
+        if table_name in ['user', 'certificado']:
             if not backup_table_data(connection, table_name):
-                raise Exception(f"Falha ao criar backup da tabela {table_name}")
+                print(f"Aviso: Não foi possível fazer backup da tabela {table_name}, mas continuando com a operação...")
         
         # Iniciar transação
         with connection.begin() as transaction:
@@ -96,7 +104,8 @@ def safe_execute_with_backup(connection, table_name, sql_commands, is_new_table=
         return True
     except Exception as e:
         print(f"Erro durante o processo de atualização da tabela {table_name}: {str(e)}")
-        print(f"Os backups podem ser encontrados no diretório: {BACKUP_DIR}")
+        if os.path.exists(BACKUP_DIR) and os.listdir(BACKUP_DIR):
+            print(f"Os backups podem ser encontrados no diretório: {BACKUP_DIR}")
         raise
 
 with app.app_context():
