@@ -15,6 +15,12 @@ from sqlalchemy import create_engine, text, MetaData, Table, Column, String
 from sqlalchemy.schema import CreateTable
 from datetime import datetime
 import json
+import os
+
+# Criar diretório para backups se não existir
+BACKUP_DIR = 'db_backups'
+if not os.path.exists(BACKUP_DIR):
+    os.makedirs(BACKUP_DIR)
 
 def backup_table_data(connection, table_name):
     """Faz backup dos dados de uma tabela em formato JSON"""
@@ -28,8 +34,8 @@ def backup_table_data(connection, table_name):
                 if isinstance(value, datetime):
                     row[key] = value.isoformat()
         
-        backup_file = f'backup_{table_name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json'
-        with open(backup_file, 'w') as f:
+        backup_file = os.path.join(BACKUP_DIR, f'backup_{table_name}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.json')
+        with open(backup_file, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         print(f"Backup da tabela {table_name} criado com sucesso: {backup_file}")
         return True
@@ -37,32 +43,46 @@ def backup_table_data(connection, table_name):
         print(f"Erro ao fazer backup da tabela {table_name}: {str(e)}")
         return False
 
+def execute_sql_commands(connection, commands):
+    """Executa uma lista de comandos SQL"""
+    for command in commands.split(';'):
+        if command.strip():
+            try:
+                connection.execute(text(command.strip()))
+            except Exception as e:
+                print(f"Erro ao executar comando SQL: {command.strip()}")
+                raise
+
 def safe_execute_with_backup(connection, table_name, sql_commands):
     """Executa comandos SQL com backup de segurança e rollback em caso de erro"""
-    transaction = connection.begin()
     try:
         # Fazer backup antes de qualquer alteração
         if table_name in ['user', 'certificado']:
             if not backup_table_data(connection, table_name):
                 raise Exception(f"Falha ao criar backup da tabela {table_name}")
         
-        # Executar os comandos SQL
-        for command in sql_commands.split(';'):
-            if command.strip():
-                connection.execute(text(command))
+        # Iniciar transação
+        with connection.begin() as transaction:
+            try:
+                # Executar os comandos SQL
+                execute_sql_commands(connection, sql_commands)
+                # Commit acontece automaticamente se não houver erros
+                print(f"Comandos SQL executados com sucesso para a tabela {table_name}")
+            except Exception as e:
+                # Rollback acontece automaticamente em caso de erro
+                print(f"Erro durante a execução dos comandos SQL para {table_name}: {str(e)}")
+                raise
         
-        # Commit se tudo deu certo
-        transaction.commit()
         return True
     except Exception as e:
-        # Rollback em caso de erro
-        transaction.rollback()
-        print(f"Erro durante a execução dos comandos SQL: {str(e)}")
+        print(f"Erro durante o processo de atualização da tabela {table_name}: {str(e)}")
+        print(f"Os backups podem ser encontrados no diretório: {BACKUP_DIR}")
         raise
 
 with app.app_context():
     try:
         print("Iniciando processo de atualização do banco de dados...")
+        print(f"Os backups serão salvos no diretório: {BACKUP_DIR}")
         
         # Get database URL from app config
         db_url = app.config['SQLALCHEMY_DATABASE_URI']
@@ -201,7 +221,7 @@ with app.app_context():
         
     except Exception as e:
         print(f"Erro durante a inicialização do banco de dados: {str(e)}")
-        print("ATENÇÃO: Em caso de erro, os backups podem ser encontrados nos arquivos backup_*.json")
+        print(f"ATENÇÃO: Os backups podem ser encontrados no diretório: {BACKUP_DIR}")
         raise
 
 END
