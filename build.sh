@@ -139,7 +139,7 @@ with app.app_context():
                     print("Atualizando estrutura da tabela de usuários preservando dados...")
                     sql_commands = """
                         CREATE TABLE user_temp AS SELECT * FROM "user";
-                        DROP TABLE "user";
+                        DROP TABLE "user" CASCADE;
                         
                         CREATE TABLE "user" (
                             id SERIAL PRIMARY KEY,
@@ -150,7 +150,33 @@ with app.app_context():
                         );
                         
                         INSERT INTO "user" SELECT * FROM user_temp;
-                        DROP TABLE user_temp
+                        DROP TABLE user_temp;
+
+                        -- Recriar a tabela certificado com a nova referência
+                        CREATE TABLE certificado (
+                            id SERIAL PRIMARY KEY,
+                            razao_social VARCHAR(200) NOT NULL,
+                            nome_fantasia VARCHAR(200) NOT NULL,
+                            cnpj VARCHAR(30) NOT NULL,
+                            telefone VARCHAR(30) NOT NULL,
+                            data_emissao TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                            data_validade TIMESTAMP WITHOUT TIME ZONE NOT NULL,
+                            status VARCHAR(30) NOT NULL,
+                            observacoes TEXT,
+                            user_id INTEGER NOT NULL REFERENCES "user" (id)
+                        );
+
+                        -- Recriar o índice único
+                        CREATE UNIQUE INDEX unique_cnpj_per_user ON certificado (cnpj, user_id);
+
+                        -- Restaurar os dados dos certificados se existirem
+                        INSERT INTO certificado 
+                        SELECT * FROM certificado_temp WHERE EXISTS (
+                            SELECT 1 FROM certificado_temp LIMIT 1
+                        );
+
+                        -- Limpar tabela temporária se existir
+                        DROP TABLE IF EXISTS certificado_temp;
                     """
                     safe_execute_with_backup(connection, 'user', sql_commands)
                     print("Tabela de usuários atualizada com sucesso!")
