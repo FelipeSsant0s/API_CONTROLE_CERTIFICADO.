@@ -79,9 +79,8 @@ def safe_execute_with_backup(connection, table_name, sql_commands, is_new_table=
         # Verificar se é uma criação de nova tabela
         if is_new_table:
             print(f"Criando nova tabela {table_name}, backup não é necessário.")
-            with connection.begin() as transaction:
-                execute_sql_commands(connection, sql_commands)
-                print(f"Tabela {table_name} criada com sucesso!")
+            execute_sql_commands(connection, sql_commands)
+            print(f"Tabela {table_name} criada com sucesso!")
             return True
         
         # Para atualizações de tabelas existentes
@@ -89,17 +88,13 @@ def safe_execute_with_backup(connection, table_name, sql_commands, is_new_table=
             if not backup_table_data(connection, table_name):
                 print(f"Aviso: Não foi possível fazer backup da tabela {table_name}, mas continuando com a operação...")
         
-        # Iniciar transação
-        with connection.begin() as transaction:
-            try:
-                # Executar os comandos SQL
-                execute_sql_commands(connection, sql_commands)
-                # Commit acontece automaticamente se não houver erros
-                print(f"Comandos SQL executados com sucesso para a tabela {table_name}")
-            except Exception as e:
-                # Rollback acontece automaticamente em caso de erro
-                print(f"Erro durante a execução dos comandos SQL para {table_name}: {str(e)}")
-                raise
+        try:
+            # Executar os comandos SQL
+            execute_sql_commands(connection, sql_commands)
+            print(f"Comandos SQL executados com sucesso para a tabela {table_name}")
+        except Exception as e:
+            print(f"Erro durante a execução dos comandos SQL para {table_name}: {str(e)}")
+            raise
         
         return True
     except Exception as e:
