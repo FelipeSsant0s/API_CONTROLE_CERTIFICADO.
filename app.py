@@ -44,7 +44,10 @@ def determinar_status(data_validade):
 # Define models
 class Certificado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    nome = db.Column(db.String(100), nullable=False)
+    razao_social = db.Column(db.String(200), nullable=False)
+    nome_fantasia = db.Column(db.String(200), nullable=False)
+    cnpj = db.Column(db.String(18), nullable=False)
+    telefone = db.Column(db.String(20), nullable=False)
     data_emissao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     data_validade = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), nullable=False)
@@ -105,15 +108,19 @@ def novo_certificado():
     try:
         if request.method == 'POST':
             logger.info('Creating new certificate')
-            nome = request.form['nome']
-            data_emissao = datetime.strptime(request.form['data_emissao'], '%Y-%m-%d')
+            razao_social = request.form['razao_social']
+            nome_fantasia = request.form['nome_fantasia']
+            cnpj = request.form['cnpj']
+            telefone = request.form['telefone']
             data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
             observacoes = request.form['observacoes']
 
             # Cria o certificado com status automático
             certificado = Certificado(
-                nome=nome,
-                data_emissao=data_emissao,
+                razao_social=razao_social,
+                nome_fantasia=nome_fantasia,
+                cnpj=cnpj,
+                telefone=telefone,
                 data_validade=data_validade,
                 observacoes=observacoes
             )
@@ -123,7 +130,7 @@ def novo_certificado():
 
             db.session.add(certificado)
             db.session.commit()
-            logger.info(f'Certificate created successfully: {nome}')
+            logger.info(f'Certificate created successfully: {razao_social}')
 
             flash('Certificado criado com sucesso!', 'success')
             return redirect(url_for('listar_certificados'))
@@ -149,18 +156,21 @@ def exportar_certificados():
         ws.title = "Certificados"
         
         # Headers
-        headers = ['ID', 'Nome', 'Data Emissão', 'Data Validade', 'Status', 'Observações']
+        headers = ['ID', 'Razão Social', 'Nome Fantasia', 'CNPJ', 'Telefone', 'Data Emissão', 'Data Validade', 'Status', 'Observações']
         for col, header in enumerate(headers, 1):
             ws.cell(row=1, column=col, value=header)
         
         # Data
         for row, cert in enumerate(certificados, 2):
             ws.cell(row=row, column=1, value=cert.id)
-            ws.cell(row=row, column=2, value=cert.nome)
-            ws.cell(row=row, column=3, value=cert.data_emissao.strftime('%d/%m/%Y'))
-            ws.cell(row=row, column=4, value=cert.data_validade.strftime('%d/%m/%Y'))
-            ws.cell(row=row, column=5, value=cert.status)
-            ws.cell(row=row, column=6, value=cert.observacoes)
+            ws.cell(row=row, column=2, value=cert.razao_social)
+            ws.cell(row=row, column=3, value=cert.nome_fantasia)
+            ws.cell(row=row, column=4, value=cert.cnpj)
+            ws.cell(row=row, column=5, value=cert.telefone)
+            ws.cell(row=row, column=6, value=cert.data_emissao.strftime('%d/%m/%Y'))
+            ws.cell(row=row, column=7, value=cert.data_validade.strftime('%d/%m/%Y'))
+            ws.cell(row=row, column=8, value=cert.status)
+            ws.cell(row=row, column=9, value=cert.observacoes)
         
         # Save to bytes
         excel_file = io.BytesIO()

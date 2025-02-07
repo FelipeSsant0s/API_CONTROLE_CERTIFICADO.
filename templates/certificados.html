@@ -27,7 +27,10 @@
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>Nome</th>
+                    <th>Razão Social</th>
+                    <th>Nome Fantasia</th>
+                    <th>CNPJ</th>
+                    <th>Telefone</th>
                     <th>Data Emissão</th>
                     <th>Data Validade</th>
                     <th>Status</th>
@@ -38,7 +41,10 @@
                 {% for certificado in certificados %}
                 <tr>
                     <td>{{ certificado.id }}</td>
-                    <td>{{ certificado.nome }}</td>
+                    <td>{{ certificado.razao_social }}</td>
+                    <td>{{ certificado.nome_fantasia }}</td>
+                    <td>{{ certificado.cnpj }}</td>
+                    <td>{{ certificado.telefone }}</td>
                     <td>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</td>
                     <td>{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
                     <td>
