@@ -14,11 +14,14 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-# Configure logging
+# Configuração de logging mais detalhada
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s',
-    handlers=[logging.StreamHandler(sys.stdout)]
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler('app.log')
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -712,6 +715,34 @@ def nova_senha():
                 return redirect(url_for('login'))
     
     return render_template('nova_senha.html')
+
+# Manipulador de erros global
+@app.errorhandler(Exception)
+def handle_exception(e):
+    logger.error(f"Erro não tratado: {str(e)}", exc_info=True)
+    return render_template('500.html'), 500
+
+@app.errorhandler(404)
+def not_found_error(error):
+    logger.error(f"Página não encontrada: {request.url}")
+    return render_template('404.html'), 404
+
+@app.errorhandler(500)
+def internal_error(error):
+    db.session.rollback()
+    logger.error("Erro interno do servidor", exc_info=True)
+    return render_template('500.html'), 500
+
+# Middleware para logging de requisições
+@app.before_request
+def log_request_info():
+    logger.debug('Headers: %s', request.headers)
+    logger.debug('Body: %s', request.get_data())
+
+@app.after_request
+def log_response_info(response):
+    logger.debug('Response Status: %s', response.status)
+    return response
 
 if __name__ == '__main__':
     app.run(debug=True) 

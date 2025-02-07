@@ -9,16 +9,21 @@ bind = f"0.0.0.0:{port}"
 workers = multiprocessing.cpu_count() * 2 + 1
 worker_class = "gthread"
 threads = 4
+max_requests = 1000
+max_requests_jitter = 50
 
 # Timeout
-timeout = 300
-graceful_timeout = 300
+timeout = 120
+graceful_timeout = 120
 keepalive = 5
 
 # Logging
-accesslog = "-"
-errorlog = "-"
+accesslog = "access.log"
+errorlog = "error.log"
 loglevel = "info"
+access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(L)s'
+capture_output = True
+enable_stdio_inheritance = True
 
 # SSL (if needed)
 # keyfile = "path/to/keyfile"
@@ -36,7 +41,20 @@ proc_name = "certificados_app"
 preload_app = True
 reload = False  # Disable reload in production
 daemon = False
+forwarded_allow_ips = '*'
 
-# Server Hooks
+# Error Handling
+worker_abort_on_error = False
+retry_on_term = True
+
+def when_ready(server):
+    """Log when server is ready"""
+    print(f"Gunicorn Server is ready. Listening on port {port}")
+
 def on_starting(server):
-    print(f"Starting Gunicorn Server on port {port}...") 
+    """Log when server is starting"""
+    print(f"Starting Gunicorn Server on port {port}...")
+
+def on_exit(server):
+    """Log when server is shutting down"""
+    print("Shutting down Gunicorn Server...") 
