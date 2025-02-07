@@ -1,1 +1,1 @@
-web: gunicorn wsgi:app 
+web: chmod +x build.sh && ./build.sh 
