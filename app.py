@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
 from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from datetime import datetime, timedelta
 import os
 import io
 import openpyxl
@@ -29,6 +29,18 @@ logger.info(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 # Create SQLAlchemy instance
 db = SQLAlchemy(app)
 
+def determinar_status(data_validade):
+    """Determina o status do certificado com base na data de validade"""
+    hoje = datetime.now()
+    dias_para_vencer = (data_validade - hoje).days
+    
+    if dias_para_vencer < 0:
+        return 'Expirado'
+    elif dias_para_vencer <= 30:
+        return 'Próximo ao Vencimento'
+    else:
+        return 'Válido'
+
 # Define models
 class Certificado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -37,6 +49,10 @@ class Certificado(db.Model):
     data_validade = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), nullable=False)
     observacoes = db.Column(db.Text)
+
+    def atualizar_status(self):
+        """Atualiza o status do certificado com base na data de validade"""
+        self.status = determinar_status(self.data_validade)
 
 # Initialize database
 with app.app_context():
@@ -75,6 +91,10 @@ def listar_certificados():
     try:
         logger.info('Listing certificates')
         certificados = Certificado.query.all()
+        # Atualiza o status de todos os certificados antes de exibir
+        for certificado in certificados:
+            certificado.atualizar_status()
+        db.session.commit()
         return render_template('certificados.html', certificados=certificados)
     except Exception as e:
         logger.error(f'Error in listar_certificados route: {str(e)}')
@@ -88,16 +108,18 @@ def novo_certificado():
             nome = request.form['nome']
             data_emissao = datetime.strptime(request.form['data_emissao'], '%Y-%m-%d')
             data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
-            status = request.form['status']
             observacoes = request.form['observacoes']
 
+            # Cria o certificado com status automático
             certificado = Certificado(
                 nome=nome,
                 data_emissao=data_emissao,
                 data_validade=data_validade,
-                status=status,
                 observacoes=observacoes
             )
+            
+            # Define o status automaticamente
+            certificado.atualizar_status()
 
             db.session.add(certificado)
             db.session.commit()
@@ -117,6 +139,10 @@ def exportar_certificados():
     try:
         logger.info('Exporting certificates to Excel')
         certificados = Certificado.query.all()
+        # Atualiza o status antes de exportar
+        for certificado in certificados:
+            certificado.atualizar_status()
+        db.session.commit()
         
         wb = openpyxl.Workbook()
         ws = wb.active

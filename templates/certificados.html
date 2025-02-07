@@ -42,7 +42,7 @@
                     <td>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</td>
                     <td>{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
                     <td>
-                        <span class="badge {% if certificado.status == 'Válido' %}badge-success{% else %}badge-danger{% endif %}">
+                        <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% else %}bg-danger{% endif %}">
                             {{ certificado.status }}
                         </span>
                     </td>
