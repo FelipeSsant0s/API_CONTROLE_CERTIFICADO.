@@ -3,9 +3,11 @@
 # Exit on error
 set -o errexit
 
+echo "Upgrading pip to latest version..."
+python -m pip install --no-cache-dir --upgrade pip
+
 echo "Installing Python dependencies..."
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
+python -m pip install --no-cache-dir -r requirements.txt
 
 echo "Checking database connection..."
 python check_db.py
