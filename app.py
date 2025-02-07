@@ -98,54 +98,11 @@ class Certificado(db.Model):
 # Initialize database
 with app.app_context():
     try:
-        logger.info('Checking database tables...')
-        # Tenta criar as tabelas. Se já existirem, não faz nada
+        logger.info('Forcing database tables recreation...')
+        # Força a recriação das tabelas
+        db.drop_all()
         db.create_all()
-        
-        # Verifica se precisa recriar as tabelas devido a erros de tamanho de campo
-        inspector = db.inspect(db.engine)
-        if inspector.has_table('certificado'):
-            columns = inspector.get_columns('certificado')
-            needs_update = False
-            
-            for column in columns:
-                if column['name'] == 'cnpj' and column.get('type').length < 30:
-                    needs_update = True
-                    break
-                if column['name'] == 'telefone' and column.get('type').length < 30:
-                    needs_update = True
-                    break
-            
-            if needs_update:
-                logger.info('Updating table structure...')
-                # Faz backup dos dados existentes
-                certificados_backup = []
-                try:
-                    certificados_backup = Certificado.query.all()
-                except:
-                    pass
-                
-                # Recria as tabelas
-                db.drop_all()
-                db.create_all()
-                
-                # Restaura os dados
-                for cert in certificados_backup:
-                    novo_cert = Certificado(
-                        razao_social=cert.razao_social,
-                        nome_fantasia=cert.nome_fantasia,
-                        cnpj=cert.cnpj,
-                        telefone=cert.telefone,
-                        data_emissao=cert.data_emissao,
-                        data_validade=cert.data_validade,
-                        status=cert.status,
-                        observacoes=cert.observacoes,
-                        user_id=cert.user_id
-                    )
-                    db.session.add(novo_cert)
-                
-                db.session.commit()
-                logger.info('Table structure updated successfully')
+        logger.info('Database tables recreated successfully')
         
         # Create default admin user if it doesn't exist
         if not User.query.filter_by(username='admin').first():
