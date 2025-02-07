@@ -11,7 +11,14 @@ echo "Initializing database..."
 python << END
 from app import db, app
 with app.app_context():
+    # Drop all tables
+    db.drop_all()
+    print("Dropped all existing tables")
+    
+    # Create all tables
     db.create_all()
+    print("Created all tables with new structure")
+    
     print("Database initialized successfully!")
 END
 

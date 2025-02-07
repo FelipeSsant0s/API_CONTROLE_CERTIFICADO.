@@ -98,11 +98,15 @@ class Certificado(db.Model):
 # Initialize database
 with app.app_context():
     try:
-        logger.info('Forcing database tables recreation...')
-        # Força a recriação das tabelas
+        logger.info('Starting database initialization...')
+        
+        # Drop all existing tables
+        logger.info('Dropping all existing tables...')
         db.drop_all()
+        
+        # Create all tables with new structure
+        logger.info('Creating tables with new structure...')
         db.create_all()
-        logger.info('Database tables recreated successfully')
         
         # Create default admin user if it doesn't exist
         if not User.query.filter_by(username='admin').first():
