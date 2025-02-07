@@ -1,14 +1,78 @@
 {% extends "base.html" %}
 
 {% block content %}
+<!-- Hero Section -->
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold">Gerenciador de Certificados</h1>
+                <p class="lead text-muted">Sistema para controle e gerenciamento de certificados digitais de forma eficiente e organizada.</p>
+                <div class="mt-4">
+                    <a href="{{ url_for('novo_certificado') }}" class="btn btn-primary btn-lg me-2">
+                        <i class="fas fa-plus-circle me-2"></i>Novo Certificado
+                    </a>
+                    <a href="{{ url_for('listar_certificados') }}" class="btn btn-outline-primary btn-lg">
+                        <i class="fas fa-list me-2"></i>Ver Certificados
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 d-none d-lg-block text-center">
+                <i class="fas fa-certificate text-primary" style="font-size: 15rem; opacity: 0.1;"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Features Section -->
 <div class="container mt-5">
-    <div class="jumbotron">
-        <h1 class="display-4">Gerenciador de Certificados</h1>
-        <p class="lead">Sistema para controle e gerenciamento de certificados digitais.</p>
-        <hr class="my-4">
-        <p>Acesse o sistema para gerenciar seus certificados.</p>
-        <a class="btn btn-primary btn-lg" href="{{ url_for('listar_certificados') }}" role="button">Ver Certificados</a>
-        <a class="btn btn-success btn-lg" href="{{ url_for('novo_certificado') }}" role="button">Novo Certificado</a>
+    <div class="row g-4">
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-clock text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h5 class="card-title">Controle de Validade</h5>
+                    <p class="card-text">Monitore automaticamente a validade dos certificados e receba alertas de vencimento.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-file-export text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h5 class="card-title">Exportação de Dados</h5>
+                    <p class="card-text">Exporte seus dados para Excel e gere relatórios personalizados facilmente.</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card h-100">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="fas fa-building text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h5 class="card-title">Gestão Empresarial</h5>
+                    <p class="card-text">Gerencie certificados de múltiplas empresas em um único lugar.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Call to Action -->
+<div class="container mt-5">
+    <div class="card bg-primary text-white">
+        <div class="card-body p-5 text-center">
+            <h2 class="card-title">Comece a Gerenciar seus Certificados</h2>
+            <p class="card-text">Cadastre um novo certificado agora mesmo e mantenha seu controle em dia.</p>
+            <a href="{{ url_for('novo_certificado') }}" class="btn btn-light btn-lg mt-3">
+                <i class="fas fa-plus-circle me-2"></i>Cadastrar Certificado
+            </a>
+        </div>
     </div>
 </div>
 {% endblock %} 

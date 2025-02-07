@@ -1,62 +1,99 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Lista de Certificados</h2>
-        <div>
-            <a href="{{ url_for('novo_certificado') }}" class="btn btn-success">
-                <i class="fas fa-plus"></i> Novo Certificado
-            </a>
-            <a href="{{ url_for('exportar_certificados') }}" class="btn btn-primary">
-                <i class="fas fa-file-excel"></i> Exportar para Excel
-            </a>
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="fw-bold">Lista de Certificados</h1>
+                <p class="text-muted mb-0">Gerencie todos os certificados cadastrados</p>
+            </div>
+            <div class="col-md-6 text-md-end mt-3 mt-md-0">
+                <a href="{{ url_for('novo_certificado') }}" class="btn btn-success me-2">
+                    <i class="fas fa-plus-circle me-2"></i>Novo Certificado
+                </a>
+                <a href="{{ url_for('exportar_certificados') }}" class="btn btn-primary">
+                    <i class="fas fa-file-excel me-2"></i>Exportar Excel
+                </a>
+            </div>
         </div>
     </div>
+</div>
 
+<div class="container mt-4">
+    <!-- Alert Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
             {% for category, message in messages %}
-                <div class="alert alert-{{ category }}">{{ message }}</div>
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    <i class="fas {% if category == 'success' %}fa-check-circle{% else %}fa-info-circle{% endif %} me-2"></i>
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
 
-    <div class="table-responsive">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>Razão Social</th>
-                    <th>Nome Fantasia</th>
-                    <th>CNPJ</th>
-                    <th>Telefone</th>
-                    <th>Data Emissão</th>
-                    <th>Data Validade</th>
-                    <th>Status</th>
-                    <th>Observações</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for certificado in certificados %}
-                <tr>
-                    <td>{{ certificado.id }}</td>
-                    <td>{{ certificado.razao_social }}</td>
-                    <td>{{ certificado.nome_fantasia }}</td>
-                    <td>{{ certificado.cnpj }}</td>
-                    <td>{{ certificado.telefone }}</td>
-                    <td>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</td>
-                    <td>{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
-                    <td>
-                        <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% else %}bg-danger{% endif %}">
-                            {{ certificado.status }}
-                        </span>
-                    </td>
-                    <td>{{ certificado.observacoes }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+    <!-- Certificates Table -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="px-4">ID</th>
+                            <th>Razão Social</th>
+                            <th>Nome Fantasia</th>
+                            <th>CNPJ</th>
+                            <th>Telefone</th>
+                            <th>Data Emissão</th>
+                            <th>Data Validade</th>
+                            <th>Status</th>
+                            <th class="px-4">Observações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for certificado in certificados %}
+                        <tr>
+                            <td class="px-4">{{ certificado.id }}</td>
+                            <td>{{ certificado.razao_social }}</td>
+                            <td>{{ certificado.nome_fantasia }}</td>
+                            <td>{{ certificado.cnpj }}</td>
+                            <td>{{ certificado.telefone }}</td>
+                            <td>{{ certificado.data_emissao.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
+                            <td>
+                                <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% else %}bg-danger{% endif %}">
+                                    <i class="fas {% if certificado.status == 'Válido' %}fa-check-circle{% elif certificado.status == 'Próximo ao Vencimento' %}fa-exclamation-circle{% else %}fa-times-circle{% endif %} me-1"></i>
+                                    {{ certificado.status }}
+                                </span>
+                            </td>
+                            <td class="px-4">
+                                {% if certificado.observacoes %}
+                                    <span data-bs-toggle="tooltip" data-bs-placement="left" title="{{ certificado.observacoes }}">
+                                        <i class="fas fa-comment-alt text-muted"></i>
+                                    </span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
+
+<!-- Initialize tooltips -->
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}
 {% endblock %} 
