@@ -80,8 +80,8 @@ class Certificado(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     razao_social = db.Column(db.String(200), nullable=False)
     nome_fantasia = db.Column(db.String(200), nullable=False)
-    cnpj = db.Column(db.String(18), nullable=False)
-    telefone = db.Column(db.String(20), nullable=False)
+    cnpj = db.Column(db.String(30), nullable=False)
+    telefone = db.Column(db.String(30), nullable=False)
     data_emissao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     data_validade = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), nullable=False)
@@ -98,8 +98,55 @@ class Certificado(db.Model):
 # Initialize database
 with app.app_context():
     try:
-        logger.info('Creating database tables...')
+        logger.info('Checking database tables...')
+        # Tenta criar as tabelas. Se já existirem, não faz nada
         db.create_all()
+        
+        # Verifica se precisa recriar as tabelas devido a erros de tamanho de campo
+        inspector = db.inspect(db.engine)
+        if inspector.has_table('certificado'):
+            columns = inspector.get_columns('certificado')
+            needs_update = False
+            
+            for column in columns:
+                if column['name'] == 'cnpj' and column.get('type').length < 30:
+                    needs_update = True
+                    break
+                if column['name'] == 'telefone' and column.get('type').length < 30:
+                    needs_update = True
+                    break
+            
+            if needs_update:
+                logger.info('Updating table structure...')
+                # Faz backup dos dados existentes
+                certificados_backup = []
+                try:
+                    certificados_backup = Certificado.query.all()
+                except:
+                    pass
+                
+                # Recria as tabelas
+                db.drop_all()
+                db.create_all()
+                
+                # Restaura os dados
+                for cert in certificados_backup:
+                    novo_cert = Certificado(
+                        razao_social=cert.razao_social,
+                        nome_fantasia=cert.nome_fantasia,
+                        cnpj=cert.cnpj,
+                        telefone=cert.telefone,
+                        data_emissao=cert.data_emissao,
+                        data_validade=cert.data_validade,
+                        status=cert.status,
+                        observacoes=cert.observacoes,
+                        user_id=cert.user_id
+                    )
+                    db.session.add(novo_cert)
+                
+                db.session.commit()
+                logger.info('Table structure updated successfully')
+        
         # Create default admin user if it doesn't exist
         if not User.query.filter_by(username='admin').first():
             admin = User(
@@ -111,9 +158,10 @@ with app.app_context():
             db.session.add(admin)
             db.session.commit()
             logger.info('Default admin user created')
-        logger.info('Database tables created successfully')
+        
+        logger.info('Database initialization completed successfully')
     except Exception as e:
-        logger.error(f'Error creating database tables: {str(e)}')
+        logger.error(f'Error in database initialization: {str(e)}')
         raise
 
 # Authentication routes
