@@ -1,7 +1,9 @@
 import multiprocessing
+import os
 
 # Binding
-bind = "0.0.0.0:10000"
+port = os.environ.get('PORT', '10000')
+bind = f"0.0.0.0:{port}"
 
 # Worker Processes
 workers = multiprocessing.cpu_count() * 2 + 1
@@ -32,9 +34,9 @@ proc_name = "certificados_app"
 
 # Server Mechanics
 preload_app = True
-reload = True
+reload = False  # Disable reload in production
 daemon = False
 
 # Server Hooks
 def on_starting(server):
-    print("Starting Gunicorn Server...") 
+    print(f"Starting Gunicorn Server on port {port}...") 
