@@ -100,12 +100,7 @@ with app.app_context():
     try:
         logger.info('Starting database initialization...')
         
-        # Drop all existing tables
-        logger.info('Dropping all existing tables...')
-        db.drop_all()
-        
-        # Create all tables with new structure
-        logger.info('Creating tables with new structure...')
+        # Create tables if they don't exist
         db.create_all()
         
         # Create default admin user if it doesn't exist
