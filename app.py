@@ -24,7 +24,17 @@ logger.info('Initializing Flask application...')
 
 # Configure application
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///certificados.db').replace('postgres://', 'postgresql://')
+
+# Database configuration
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    # Render.com usa 'postgres://', mas SQLAlchemy requer 'postgresql://'
+    database_url = database_url.replace('postgres://', 'postgresql://')
+else:
+    # Fallback para SQLite em desenvolvimento local
+    database_url = 'sqlite:///certificados.db'
+
+app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
