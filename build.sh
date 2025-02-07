@@ -7,24 +7,8 @@ echo "Installing Python dependencies..."
 python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 
-# Extract host and port from DATABASE_URL
-if [ -n "$DATABASE_URL" ]; then
-    # Parse DATABASE_URL to get host and port
-    POSTGRES_HOST=$(echo $DATABASE_URL | awk -F[@/] '{print $4}' | cut -d: -f1)
-    POSTGRES_PORT=$(echo $DATABASE_URL | awk -F[@/:] '{print $5}')
-    
-    echo "Waiting for PostgreSQL to be ready..."
-    for i in {1..30}; do
-        if pg_isready -h $POSTGRES_HOST -p $POSTGRES_PORT; then
-            echo "PostgreSQL is ready!"
-            break
-        fi
-        echo "Waiting for PostgreSQL... ($i/30)"
-        sleep 1
-    done
-else
-    echo "DATABASE_URL not set, skipping PostgreSQL check..."
-fi
+echo "Checking database connection..."
+python check_db.py
 
 echo "Initializing database..."
 python << END
