@@ -84,7 +84,7 @@ class Certificado(db.Model):
     telefone = db.Column(db.String(30), nullable=False)
     data_emissao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
     data_validade = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(20), nullable=False)
+    status = db.Column(db.String(30), nullable=False)
     observacoes = db.Column(db.Text)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
