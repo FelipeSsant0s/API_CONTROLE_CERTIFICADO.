@@ -5,18 +5,26 @@ import os
 import io
 import openpyxl
 import logging
+import sys
 
 # Configure logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
+)
 logger = logging.getLogger(__name__)
 
 # Create Flask application
 app = Flask(__name__)
+logger.info('Initializing Flask application...')
 
 # Configure application
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///certificados.db').replace('postgres://', 'postgresql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+logger.info(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
 
 # Create SQLAlchemy instance
 db = SQLAlchemy(app)
@@ -29,6 +37,16 @@ class Certificado(db.Model):
     data_validade = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), nullable=False)
     observacoes = db.Column(db.Text)
+
+# Initialize database
+with app.app_context():
+    try:
+        logger.info('Creating database tables...')
+        db.create_all()
+        logger.info('Database tables created successfully')
+    except Exception as e:
+        logger.error(f'Error creating database tables: {str(e)}')
+        raise
 
 # Error handlers
 @app.errorhandler(404)
@@ -46,6 +64,7 @@ def internal_error(error):
 @app.route('/')
 def index():
     try:
+        logger.info('Accessing index page')
         return render_template('index.html')
     except Exception as e:
         logger.error(f'Error in index route: {str(e)}')
@@ -54,6 +73,7 @@ def index():
 @app.route('/certificados', methods=['GET'])
 def listar_certificados():
     try:
+        logger.info('Listing certificates')
         certificados = Certificado.query.all()
         return render_template('certificados.html', certificados=certificados)
     except Exception as e:
@@ -64,6 +84,7 @@ def listar_certificados():
 def novo_certificado():
     try:
         if request.method == 'POST':
+            logger.info('Creating new certificate')
             nome = request.form['nome']
             data_emissao = datetime.strptime(request.form['data_emissao'], '%Y-%m-%d')
             data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
@@ -80,6 +101,7 @@ def novo_certificado():
 
             db.session.add(certificado)
             db.session.commit()
+            logger.info(f'Certificate created successfully: {nome}')
 
             flash('Certificado criado com sucesso!', 'success')
             return redirect(url_for('listar_certificados'))
@@ -93,6 +115,7 @@ def novo_certificado():
 @app.route('/certificados/exportar')
 def exportar_certificados():
     try:
+        logger.info('Exporting certificates to Excel')
         certificados = Certificado.query.all()
         
         wb = openpyxl.Workbook()
@@ -118,6 +141,7 @@ def exportar_certificados():
         wb.save(excel_file)
         excel_file.seek(0)
         
+        logger.info('Excel file generated successfully')
         return send_file(
             excel_file,
             mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -129,6 +153,4 @@ def exportar_certificados():
         return render_template('500.html'), 500
 
 if __name__ == '__main__':
-    with app.app_context():
-        db.create_all()
     app.run(debug=True) 
