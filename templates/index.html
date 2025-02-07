@@ -65,13 +65,28 @@
 
 <!-- Call to Action -->
 <div class="container mt-5">
-    <div class="card bg-primary text-white">
-        <div class="card-body p-5 text-center">
-            <h2 class="card-title">Comece a Gerenciar seus Certificados</h2>
-            <p class="card-text">Cadastre um novo certificado agora mesmo e mantenha seu controle em dia.</p>
-            <a href="{{ url_for('novo_certificado') }}" class="btn btn-light btn-lg mt-3">
-                <i class="fas fa-plus-circle me-2"></i>Cadastrar Certificado
-            </a>
+    <div class="row">
+        <div class="col-md-6 mb-4">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body p-5 text-center">
+                    <h2 class="card-title">Comece a Gerenciar seus Certificados</h2>
+                    <p class="card-text">Cadastre um novo certificado agora mesmo e mantenha seu controle em dia.</p>
+                    <a href="{{ url_for('novo_certificado') }}" class="btn btn-light btn-lg mt-3">
+                        <i class="fas fa-plus-circle me-2"></i>Cadastrar Certificado
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body p-5 text-center">
+                    <h2 class="card-title">Análise e Gestão</h2>
+                    <p class="card-text">Visualize estatísticas e insights sobre seus certificados em um dashboard completo.</p>
+                    <a href="{{ url_for('dashboard') }}" class="btn btn-light btn-lg mt-3">
+                        <i class="fas fa-chart-pie me-2"></i>Ver Dashboard
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 </div>

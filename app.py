@@ -485,5 +485,61 @@ def exportar_certificados():
         logger.error(f'Error in exportar_certificados route: {str(e)}')
         return render_template('500.html'), 500
 
+@app.route('/dashboard')
+@login_required
+def dashboard():
+    try:
+        logger.info('Accessing dashboard page')
+        
+        # Buscar certificados do usuário
+        certificados = Certificado.query.filter_by(user_id=current_user.id).all()
+        
+        # Atualizar status de todos os certificados
+        for certificado in certificados:
+            certificado.atualizar_status()
+        
+        # Dados para o gráfico de pizza (Status dos Certificados)
+        status_counts = {
+            'Válido': 0,
+            'Próximo ao Vencimento': 0,
+            'Expirado': 0
+        }
+        for certificado in certificados:
+            status_counts[certificado.status] += 1
+        
+        # Dados para o gráfico de barras (Certificados por Mês)
+        from collections import defaultdict
+        import calendar
+        
+        certificados_por_mes = defaultdict(int)
+        for certificado in certificados:
+            mes = certificado.data_validade.strftime('%B')  # Nome do mês
+            certificados_por_mes[mes] += 1
+        
+        # Ordenar os meses cronologicamente
+        meses_ordenados = sorted(certificados_por_mes.items(), 
+                               key=lambda x: list(calendar.month_name).index(x[0]))
+        
+        # Preparar dados para os gráficos
+        chart_data = {
+            'status_labels': list(status_counts.keys()),
+            'status_data': list(status_counts.values()),
+            'meses_labels': [item[0] for item in meses_ordenados],
+            'meses_data': [item[1] for item in meses_ordenados]
+        }
+        
+        # Estatísticas adicionais
+        stats = {
+            'total_certificados': len(certificados),
+            'proximos_vencer': sum(1 for c in certificados if c.status == 'Próximo ao Vencimento'),
+            'expirados': sum(1 for c in certificados if c.status == 'Expirado'),
+            'validos': sum(1 for c in certificados if c.status == 'Válido')
+        }
+        
+        return render_template('dashboard.html', chart_data=chart_data, stats=stats)
+    except Exception as e:
+        logger.error(f'Error in dashboard route: {str(e)}')
+        return render_template('500.html'), 500
+
 if __name__ == '__main__':
     app.run(debug=True) 
