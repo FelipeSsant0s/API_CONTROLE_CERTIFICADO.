@@ -10,11 +10,6 @@
                 <p class="text-muted small mb-0">Visualização geral dos certificados</p>
             </div>
             <div class="col-md-6 text-md-end mt-2 mt-md-0">
-                {% if current_user.username == 'admin' %}
-                <a href="{{ url_for('admin') }}" class="btn btn-warning btn-sm me-2">
-                    <i class="fas fa-users-cog me-2"></i>Gerenciar Usuários
-                </a>
-                {% endif %}
                 <a href="{{ url_for('listar_certificados') }}" class="btn btn-primary btn-sm">
                     <i class="fas fa-list me-2"></i>Ver Lista Completa
                 </a>
@@ -95,7 +90,9 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title">Status dos Certificados</h5>
-                    <canvas id="statusChart"></canvas>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="statusChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -105,7 +102,9 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title">Certificados por Mês</h5>
-                    <canvas id="monthlyChart"></canvas>
+                    <div style="height: 300px; position: relative;">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
                 </div>
             </div>
         </div>
@@ -133,9 +132,18 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'bottom'
+                    position: 'bottom',
+                    labels: {
+                        padding: 10,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                        font: {
+                            size: 12
+                        }
+                    }
                 }
             }
         }
@@ -155,6 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
         },
         options: {
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 y: {
                     beginAtZero: true,

@@ -14,6 +14,9 @@
 </div>
 
 <div class="container mt-3">
+    <!-- Alert para mensagens -->
+    <div id="alertContainer"></div>
+
     <!-- Users Table -->
     <div class="card border-0 shadow-sm">
         <div class="card-body p-0">
@@ -51,7 +54,7 @@
                                                 <h5 class="modal-title">Alterar Senha - {{ user.username }}</h5>
                                                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                             </div>
-                                            <form action="{{ url_for('admin_alterar_senha', user_id=user.id) }}" method="POST">
+                                            <form onsubmit="return alterarSenha(event, {{ user.id }})">
                                                 <div class="modal-body">
                                                     <div class="mb-3">
                                                         <label for="nova_senha{{ user.id }}" class="form-label">Nova Senha</label>
@@ -97,6 +100,57 @@ function togglePassword(inputId) {
     
     const icon = event.currentTarget.querySelector('i');
     icon.className = type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+}
+
+function showAlert(message, type = 'success') {
+    const alertContainer = document.getElementById('alertContainer');
+    const alert = document.createElement('div');
+    alert.className = `alert alert-${type} alert-dismissible fade show`;
+    alert.innerHTML = `
+        <i class="fas ${type === 'success' ? 'fa-check-circle' : 'fa-info-circle'} me-2"></i>
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    alertContainer.appendChild(alert);
+    
+    // Auto-remove after 3 seconds
+    setTimeout(() => {
+        alert.remove();
+    }, 3000);
+}
+
+async function alterarSenha(event, userId) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const novaSenha = form.querySelector(`#nova_senha${userId}`).value;
+    
+    try {
+        const response = await fetch(`/admin/alterar_senha/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `nova_senha=${encodeURIComponent(novaSenha)}`
+        });
+        
+        const data = await response.text();
+        
+        // Fechar o modal
+        const modal = bootstrap.Modal.getInstance(document.getElementById(`alterarSenhaModal${userId}`));
+        modal.hide();
+        
+        // Limpar o campo de senha
+        form.reset();
+        
+        // Mostrar mensagem de sucesso
+        showAlert('Senha alterada com sucesso!', 'success');
+        
+    } catch (error) {
+        showAlert('Erro ao alterar senha. Tente novamente.', 'danger');
+    }
+    
+    return false;
 }
 </script>
 {% endblock %}
