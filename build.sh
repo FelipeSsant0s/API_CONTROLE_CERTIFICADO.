@@ -292,11 +292,17 @@ with app.app_context():
 
 END
 
-echo "Setting up Gunicorn..."
-mkdir -p /tmp/gunicorn
-chmod -R 777 /tmp/gunicorn
+echo "Setup completed successfully!"
 
-echo "Starting Gunicorn..."
-exec gunicorn --config gunicorn_config.py --pid /tmp/gunicorn/pid --worker-tmp-dir /tmp/gunicorn app:app
-
-echo "Build completed successfully!" 
+# Start Gunicorn
+echo "Starting Gunicorn server..."
+gunicorn app:app \
+    --bind=0.0.0.0:$PORT \
+    --workers=4 \
+    --threads=4 \
+    --worker-class=gthread \
+    --worker-tmp-dir=/tmp/gunicorn \
+    --timeout=120 \
+    --access-logfile=- \
+    --error-logfile=- \
+    --log-level=info 
