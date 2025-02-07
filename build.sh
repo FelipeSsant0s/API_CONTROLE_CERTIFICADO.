@@ -138,9 +138,22 @@ with app.app_context():
                 if needs_update:
                     print("Atualizando estrutura da tabela de usuários preservando dados...")
                     sql_commands = """
-                        CREATE TABLE user_temp AS SELECT * FROM "user";
-                        DROP TABLE "user" CASCADE;
+                        -- Verificar se a tabela certificado existe e fazer backup
+                        DO $$
+                        BEGIN
+                            IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'certificado') THEN
+                                CREATE TABLE certificado_backup AS SELECT * FROM certificado;
+                            END IF;
+                        END $$;
+
+                        -- Backup da tabela user
+                        CREATE TABLE user_backup AS SELECT * FROM "user";
                         
+                        -- Remover tabelas mantendo sequências
+                        DROP TABLE IF EXISTS certificado CASCADE;
+                        DROP TABLE IF EXISTS "user" CASCADE;
+                        
+                        -- Recriar tabela user mantendo a sequência do id
                         CREATE TABLE "user" (
                             id SERIAL PRIMARY KEY,
                             username VARCHAR(120) UNIQUE NOT NULL,
@@ -149,10 +162,10 @@ with app.app_context():
                             name VARCHAR(120) NOT NULL
                         );
                         
-                        INSERT INTO "user" SELECT * FROM user_temp;
-                        DROP TABLE user_temp;
-
-                        -- Recriar a tabela certificado com a nova referência
+                        -- Restaurar dados do user
+                        INSERT INTO "user" SELECT * FROM user_backup;
+                        
+                        -- Recriar tabela certificado
                         CREATE TABLE certificado (
                             id SERIAL PRIMARY KEY,
                             razao_social VARCHAR(200) NOT NULL,
@@ -169,17 +182,20 @@ with app.app_context():
                         -- Recriar o índice único
                         CREATE UNIQUE INDEX unique_cnpj_per_user ON certificado (cnpj, user_id);
 
-                        -- Restaurar os dados dos certificados se existirem
-                        INSERT INTO certificado 
-                        SELECT * FROM certificado_temp WHERE EXISTS (
-                            SELECT 1 FROM certificado_temp LIMIT 1
-                        );
+                        -- Restaurar dados do certificado se existir backup
+                        DO $$
+                        BEGIN
+                            IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'certificado_backup') THEN
+                                INSERT INTO certificado SELECT * FROM certificado_backup;
+                                DROP TABLE certificado_backup;
+                            END IF;
+                        END $$;
 
-                        -- Limpar tabela temporária se existir
-                        DROP TABLE IF EXISTS certificado_temp;
+                        -- Limpar backup do user
+                        DROP TABLE user_backup;
                     """
                     safe_execute_with_backup(connection, 'user', sql_commands)
-                    print("Tabela de usuários atualizada com sucesso!")
+                    print("Tabelas atualizadas com sucesso mantendo todos os dados!")
             else:
                 print("Criando tabela de usuários...")
                 sql_commands = """
