@@ -90,7 +90,7 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title">Status dos Certificados</h5>
-                    <div style="height: 300px; position: relative;">
+                    <div style="height: 200px; width: 80%; margin: 0 auto; position: relative;">
                         <canvas id="statusChart"></canvas>
                     </div>
                 </div>
@@ -102,7 +102,7 @@
             <div class="card border-0 shadow-sm">
                 <div class="card-body">
                     <h5 class="card-title">Certificados por Mês</h5>
-                    <div style="height: 300px; position: relative;">
+                    <div style="height: 200px; position: relative;">
                         <canvas id="monthlyChart"></canvas>
                     </div>
                 </div>
@@ -135,13 +135,13 @@ document.addEventListener('DOMContentLoaded', function() {
             maintainAspectRatio: false,
             plugins: {
                 legend: {
-                    position: 'bottom',
+                    position: 'right',
                     labels: {
                         padding: 10,
                         usePointStyle: true,
                         pointStyle: 'circle',
                         font: {
-                            size: 12
+                            size: 11
                         }
                     }
                 }

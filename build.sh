@@ -22,11 +22,31 @@ BACKUP_DIR = 'db_backups'
 if not os.path.exists(BACKUP_DIR):
     os.makedirs(BACKUP_DIR)
 
+def table_exists(connection, table_name):
+    """Verifica se uma tabela existe no banco de dados"""
+    try:
+        result = connection.execute(text(
+            "SELECT EXISTS (SELECT FROM information_schema.tables WHERE table_name = :table)"
+        ), {"table": table_name})
+        return result.scalar()
+    except Exception:
+        return False
+
 def backup_table_data(connection, table_name):
     """Faz backup dos dados de uma tabela em formato JSON"""
     try:
+        # Verificar se a tabela existe antes de tentar fazer backup
+        if not table_exists(connection, table_name):
+            print(f"Tabela {table_name} ainda não existe. Backup não é necessário.")
+            return True
+            
         result = connection.execute(text(f'SELECT * FROM "{table_name}"'))
         data = [dict(row) for row in result]
+        
+        # Se não há dados, não precisa criar arquivo de backup
+        if not data:
+            print(f"Tabela {table_name} está vazia. Backup não é necessário.")
+            return True
         
         # Converter timestamps para string
         for row in data:
@@ -53,11 +73,11 @@ def execute_sql_commands(connection, commands):
                 print(f"Erro ao executar comando SQL: {command.strip()}")
                 raise
 
-def safe_execute_with_backup(connection, table_name, sql_commands):
+def safe_execute_with_backup(connection, table_name, sql_commands, is_new_table=False):
     """Executa comandos SQL com backup de segurança e rollback em caso de erro"""
     try:
-        # Fazer backup antes de qualquer alteração
-        if table_name in ['user', 'certificado']:
+        # Fazer backup apenas se não for uma nova tabela
+        if not is_new_table and table_name in ['user', 'certificado']:
             if not backup_table_data(connection, table_name):
                 raise Exception(f"Falha ao criar backup da tabela {table_name}")
         
@@ -141,7 +161,7 @@ with app.app_context():
                         name VARCHAR(120) NOT NULL
                     )
                 """
-                safe_execute_with_backup(connection, 'user', sql_commands)
+                safe_execute_with_backup(connection, 'user', sql_commands, is_new_table=True)
             
             # Verificar e atualizar a tabela de certificados
             if 'certificado' in metadata.tables:
@@ -201,7 +221,7 @@ with app.app_context():
                     
                     CREATE UNIQUE INDEX unique_cnpj_per_user ON certificado (cnpj, user_id)
                 """
-                safe_execute_with_backup(connection, 'certificado', sql_commands)
+                safe_execute_with_backup(connection, 'certificado', sql_commands, is_new_table=True)
             
             # Verificar e criar tabela de recuperação de senha se não existir
             if 'recuperacao_senha' not in metadata.tables:
@@ -215,7 +235,7 @@ with app.app_context():
                         usado BOOLEAN DEFAULT FALSE
                     )
                 """
-                safe_execute_with_backup(connection, 'recuperacao_senha', sql_commands)
+                safe_execute_with_backup(connection, 'recuperacao_senha', sql_commands, is_new_table=True)
         
         print("Inicialização do banco de dados concluída com sucesso!")
         
