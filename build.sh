@@ -9,10 +9,12 @@ python -m pip install wheel setuptools
 python -m pip install -r requirements.txt
 
 echo "Initializing database..."
-python - << 'END'
-from app import db, app
+cd /opt/render/project/src/
+PYTHONPATH=/opt/render/project/src python3 - << 'END'
+from app import app, db
 with app.app_context():
     db.create_all()
+    print("Database initialized successfully!")
 END
 
 echo "Build completed successfully!" 
