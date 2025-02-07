@@ -1,6 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, abort, session
 from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
+from sqlalchemy import UniqueConstraint
 import os
 import io
 import openpyxl
@@ -24,10 +27,31 @@ app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'sqlite:///certificados.db').replace('postgres://', 'postgresql://')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-logger.info(f"Database URI: {app.config['SQLALCHEMY_DATABASE_URI']}")
-
-# Create SQLAlchemy instance
+# Initialize extensions
 db = SQLAlchemy(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+login_manager.login_message = 'Por favor, faça login para acessar esta página.'
+login_manager.login_message_category = 'info'
+
+# User model
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    certificados = db.relationship('Certificado', backref='user', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 def determinar_status(data_validade):
     """Determina o status do certificado com base na data de validade"""
@@ -52,6 +76,10 @@ class Certificado(db.Model):
     data_validade = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(20), nullable=False)
     observacoes = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    # Adiciona restrição única para CNPJ por usuário
+    __table_args__ = (UniqueConstraint('cnpj', 'user_id', name='unique_cnpj_per_user'),)
 
     def atualizar_status(self):
         """Atualiza o status do certificado com base na data de validade"""
@@ -62,25 +90,82 @@ with app.app_context():
     try:
         logger.info('Creating database tables...')
         db.create_all()
+        # Create default admin user if it doesn't exist
+        if not User.query.filter_by(username='admin').first():
+            admin = User(
+                username='admin',
+                email='admin@example.com',
+                name='Administrador'
+            )
+            admin.set_password('admin123')
+            db.session.add(admin)
+            db.session.commit()
+            logger.info('Default admin user created')
         logger.info('Database tables created successfully')
     except Exception as e:
         logger.error(f'Error creating database tables: {str(e)}')
         raise
 
-# Error handlers
-@app.errorhandler(404)
-def not_found_error(error):
-    logger.error(f'Page not found: {request.url}')
-    return render_template('404.html'), 404
+# Authentication routes
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user, remember=True)
+            next_page = request.args.get('next')
+            flash('Login realizado com sucesso!', 'success')
+            return redirect(next_page or url_for('index'))
+        else:
+            flash('Usuário ou senha inválidos.', 'danger')
+    
+    return render_template('login.html')
 
-@app.errorhandler(500)
-def internal_error(error):
-    logger.error(f'Server Error: {error}')
-    db.session.rollback()
-    return render_template('500.html'), 500
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('Logout realizado com sucesso!', 'success')
+    return redirect(url_for('login'))
 
-# Routes
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        name = request.form['name']
+        password = request.form['password']
+        
+        if User.query.filter_by(username=username).first():
+            flash('Este nome de usuário já está em uso.', 'danger')
+            return redirect(url_for('register'))
+        
+        if User.query.filter_by(email=email).first():
+            flash('Este e-mail já está em uso.', 'danger')
+            return redirect(url_for('register'))
+        
+        user = User(username=username, email=email, name=name)
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        
+        flash('Registro realizado com sucesso! Faça login para continuar.', 'success')
+        return redirect(url_for('login'))
+    
+    return render_template('register.html')
+
+# Protected routes
 @app.route('/')
+@login_required
 def index():
     try:
         logger.info('Accessing index page')
@@ -90,10 +175,11 @@ def index():
         return render_template('500.html'), 500
 
 @app.route('/certificados', methods=['GET'])
+@login_required
 def listar_certificados():
     try:
         logger.info('Listing certificates')
-        certificados = Certificado.query.all()
+        certificados = Certificado.query.filter_by(user_id=current_user.id).all()
         # Atualiza o status de todos os certificados antes de exibir
         for certificado in certificados:
             certificado.atualizar_status()
@@ -104,6 +190,7 @@ def listar_certificados():
         return render_template('500.html'), 500
 
 @app.route('/certificados/novo', methods=['GET', 'POST'])
+@login_required
 def novo_certificado():
     try:
         if request.method == 'POST':
@@ -115,6 +202,16 @@ def novo_certificado():
             data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
             observacoes = request.form['observacoes']
 
+            # Verifica se já existe um certificado com este CNPJ para este usuário
+            certificado_existente = Certificado.query.filter_by(
+                user_id=current_user.id,
+                cnpj=cnpj
+            ).first()
+
+            if certificado_existente:
+                flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
+                return render_template('novo_certificado.html')
+
             # Cria o certificado com status automático
             certificado = Certificado(
                 razao_social=razao_social,
@@ -122,7 +219,8 @@ def novo_certificado():
                 cnpj=cnpj,
                 telefone=telefone,
                 data_validade=data_validade,
-                observacoes=observacoes
+                observacoes=observacoes,
+                user_id=current_user.id
             )
             
             # Define o status automaticamente
@@ -142,15 +240,31 @@ def novo_certificado():
         return render_template('500.html'), 500
 
 @app.route('/certificados/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
 def editar_certificado(id):
     try:
         certificado = Certificado.query.get_or_404(id)
+        if certificado.user_id != current_user.id:
+            abort(403)
         
         if request.method == 'POST':
             logger.info(f'Updating certificate {id}')
+            novo_cnpj = request.form['cnpj']
+
+            # Verifica se o novo CNPJ já existe para outro certificado do mesmo usuário
+            if novo_cnpj != certificado.cnpj:
+                certificado_existente = Certificado.query.filter_by(
+                    user_id=current_user.id,
+                    cnpj=novo_cnpj
+                ).first()
+
+                if certificado_existente:
+                    flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
+                    return render_template('editar_certificado.html', certificado=certificado)
+
             certificado.razao_social = request.form['razao_social']
             certificado.nome_fantasia = request.form['nome_fantasia']
-            certificado.cnpj = request.form['cnpj']
+            certificado.cnpj = novo_cnpj
             certificado.telefone = request.form['telefone']
             certificado.data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
             certificado.observacoes = request.form['observacoes']
@@ -171,9 +285,13 @@ def editar_certificado(id):
         return render_template('500.html'), 500
 
 @app.route('/certificados/<int:id>/deletar', methods=['POST'])
+@login_required
 def deletar_certificado(id):
     try:
         certificado = Certificado.query.get_or_404(id)
+        if certificado.user_id != current_user.id:
+            abort(403)
+            
         razao_social = certificado.razao_social
         
         db.session.delete(certificado)
@@ -190,10 +308,11 @@ def deletar_certificado(id):
         return redirect(url_for('listar_certificados'))
 
 @app.route('/certificados/exportar')
+@login_required
 def exportar_certificados():
     try:
         logger.info('Exporting certificates to Excel')
-        certificados = Certificado.query.all()
+        certificados = Certificado.query.filter_by(user_id=current_user.id).all()
         # Atualiza o status antes de exportar
         for certificado in certificados:
             certificado.atualizar_status()
