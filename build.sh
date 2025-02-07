@@ -138,16 +138,13 @@ with app.app_context():
                 if needs_update:
                     print("Atualizando estrutura da tabela de usuários preservando dados...")
                     sql_commands = """
-                        -- Verificar e fazer backup das tabelas existentes
-                        DO $block$ 
-                        BEGIN
-                            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'certificado') THEN
-                                EXECUTE 'CREATE TABLE certificado_backup AS SELECT * FROM certificado';
-                            END IF;
-                        END $block$;
-
-                        -- Backup da tabela user
-                        CREATE TABLE user_backup AS SELECT * FROM "user";
+                        -- Criar backup das tabelas se existirem
+                        CREATE TABLE IF NOT EXISTS user_backup AS SELECT * FROM "user";
+                        CREATE TABLE IF NOT EXISTS certificado_backup AS 
+                        SELECT * FROM certificado WHERE EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_name = 'certificado'
+                        );
                         
                         -- Remover tabelas mantendo sequências
                         DROP TABLE IF EXISTS certificado CASCADE;
@@ -183,16 +180,16 @@ with app.app_context():
                         CREATE UNIQUE INDEX unique_cnpj_per_user ON certificado (cnpj, user_id);
 
                         -- Restaurar dados do certificado se existir backup
-                        DO $block$
-                        BEGIN
-                            IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'certificado_backup') THEN
-                                EXECUTE 'INSERT INTO certificado SELECT * FROM certificado_backup';
-                                EXECUTE 'DROP TABLE certificado_backup';
-                            END IF;
-                        END $block$;
+                        INSERT INTO certificado 
+                        SELECT * FROM certificado_backup 
+                        WHERE EXISTS (
+                            SELECT 1 FROM information_schema.tables 
+                            WHERE table_name = 'certificado_backup'
+                        );
 
-                        -- Limpar backup do user
-                        DROP TABLE user_backup;
+                        -- Limpar backups
+                        DROP TABLE IF EXISTS certificado_backup;
+                        DROP TABLE IF EXISTS user_backup;
                     """
                     safe_execute_with_backup(connection, 'user', sql_commands)
                     print("Tabelas atualizadas com sucesso mantendo todos os dados!")
