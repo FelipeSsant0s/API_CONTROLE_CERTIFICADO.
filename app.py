@@ -72,15 +72,23 @@ def load_user(user_id):
 
 def determinar_status(data_validade):
     """Determina o status do certificado com base na data de validade"""
-    hoje = datetime.now()
-    dias_para_vencer = (data_validade - hoje).days
-    
-    if dias_para_vencer < 0:
-        return 'Expirado'
-    elif dias_para_vencer <= 30:
-        return 'Próximo ao Vencimento'
-    else:
-        return 'Válido'
+    try:
+        hoje = datetime.now()
+        if not isinstance(data_validade, datetime):
+            logger.error(f'data_validade inválida: {data_validade} (tipo: {type(data_validade)})')
+            return 'Erro'
+            
+        dias_para_vencer = (data_validade - hoje).days
+        
+        if dias_para_vencer < 0:
+            return 'Expirado'
+        elif dias_para_vencer <= 30:
+            return 'Próximo ao Vencimento'
+        else:
+            return 'Válido'
+    except Exception as e:
+        logger.error(f'Erro ao determinar status: {str(e)}')
+        return 'Erro'
 
 # Define models
 class Certificado(db.Model):
@@ -206,59 +214,95 @@ def index():
 @login_required
 def listar_certificados():
     try:
-        logger.info('Listing certificates')
+        logger.info('Iniciando listagem de certificados')
+        logger.info(f'Usuário: {current_user.username} (ID: {current_user.id})')
         
         # Obter parâmetros de busca e filtro
         search_query = request.args.get('search', '').strip()
         data_inicial = request.args.get('data_inicial', '')
         data_final = request.args.get('data_final', '')
         
-        # Iniciar a query base
-        query = Certificado.query.filter_by(user_id=current_user.id)
+        logger.debug(f'Parâmetros de busca: search={search_query}, data_inicial={data_inicial}, data_final={data_final}')
         
-        # Aplicar busca se houver termo de pesquisa
-        if search_query:
-            search_term = f"%{search_query}%"
-            query = query.filter(
-                db.or_(
-                    Certificado.nome_fantasia.ilike(search_term),
-                    Certificado.razao_social.ilike(search_term),
-                    Certificado.cnpj.ilike(search_term)
+        try:
+            # Iniciar a query base
+            query = Certificado.query.filter_by(user_id=current_user.id)
+            logger.debug('Query base criada com sucesso')
+            
+            # Aplicar busca se houver termo de pesquisa
+            if search_query:
+                search_term = f"%{search_query}%"
+                query = query.filter(
+                    db.or_(
+                        Certificado.nome_fantasia.ilike(search_term),
+                        Certificado.razao_social.ilike(search_term),
+                        Certificado.cnpj.ilike(search_term)
+                    )
                 )
-            )
-        
-        # Aplicar filtro de data se as datas forem fornecidas
-        if data_inicial:
+                logger.debug(f'Filtro de busca aplicado: {search_query}')
+            
+            # Aplicar filtro de data se as datas forem fornecidas
+            if data_inicial:
+                try:
+                    data_inicial = datetime.strptime(data_inicial, '%Y-%m-%d')
+                    query = query.filter(Certificado.data_validade >= data_inicial)
+                    logger.debug(f'Filtro de data inicial aplicado: {data_inicial}')
+                except ValueError as e:
+                    logger.warning(f'Data inicial inválida: {e}')
+                    flash('Data inicial inválida', 'warning')
+            
+            if data_final:
+                try:
+                    data_final = datetime.strptime(data_final, '%Y-%m-%d')
+                    # Adiciona 1 dia à data final para incluir todo o último dia
+                    data_final = data_final + timedelta(days=1)
+                    query = query.filter(Certificado.data_validade < data_final)
+                    logger.debug(f'Filtro de data final aplicado: {data_final}')
+                except ValueError as e:
+                    logger.warning(f'Data final inválida: {e}')
+                    flash('Data final inválida', 'warning')
+            
+            # Executar a query
+            logger.debug('Executando query final')
+            certificados = query.all()
+            logger.info(f'Total de certificados encontrados: {len(certificados)}')
+            
+            # Atualizar status dos certificados
+            logger.debug('Iniciando atualização de status dos certificados')
+            for certificado in certificados:
+                try:
+                    certificado.atualizar_status()
+                except Exception as e:
+                    logger.error(f'Erro ao atualizar status do certificado {certificado.id}: {str(e)}')
+                    continue
+            
             try:
-                data_inicial = datetime.strptime(data_inicial, '%Y-%m-%d')
-                query = query.filter(Certificado.data_validade >= data_inicial)
-            except ValueError:
-                flash('Data inicial inválida', 'warning')
-        
-        if data_final:
-            try:
-                data_final = datetime.strptime(data_final, '%Y-%m-%d')
-                # Adiciona 1 dia à data final para incluir todo o último dia
-                data_final = data_final + timedelta(days=1)
-                query = query.filter(Certificado.data_validade < data_final)
-            except ValueError:
-                flash('Data final inválida', 'warning')
-        
-        # Executar a query
-        certificados = query.all()
-        
-        # Atualizar status dos certificados
-        for certificado in certificados:
-            certificado.atualizar_status()
-        db.session.commit()
-        
-        return render_template('certificados.html', 
-                             certificados=certificados,
-                             search_query=search_query,
-                             data_inicial=request.args.get('data_inicial', ''),
-                             data_final=request.args.get('data_final', ''))
+                db.session.commit()
+                logger.debug('Status dos certificados atualizados com sucesso')
+            except Exception as e:
+                logger.error(f'Erro ao salvar atualizações de status: {str(e)}')
+                db.session.rollback()
+                flash('Erro ao atualizar status dos certificados', 'warning')
+            
+            return render_template('certificados.html', 
+                                certificados=certificados,
+                                search_query=search_query,
+                                data_inicial=request.args.get('data_inicial', ''),
+                                data_final=request.args.get('data_final', ''))
+                                
+        except Exception as e:
+            logger.error(f'Erro ao processar query do banco de dados: {str(e)}', exc_info=True)
+            db.session.rollback()
+            flash('Erro ao buscar certificados no banco de dados', 'danger')
+            return render_template('certificados.html', 
+                                certificados=[],
+                                search_query=search_query,
+                                data_inicial=data_inicial,
+                                data_final=data_final)
+            
     except Exception as e:
-        logger.error(f'Error in listar_certificados route: {str(e)}')
+        logger.error(f'Erro crítico em listar_certificados: {str(e)}', exc_info=True)
+        db.session.rollback()
         return render_template('500.html'), 500
 
 @app.route('/certificados/novo', methods=['GET', 'POST'])
