@@ -206,26 +206,46 @@ def novo_certificado():
         if request.method == 'POST':
             logger.info('Creating new certificate')
             try:
+                # Log dos dados recebidos
+                logger.info('Form data received:')
+                for key, value in request.form.items():
+                    logger.info(f'{key}: {value}')
+
                 # Captura todos os campos do formulário
                 razao_social = request.form.get('razao_social')
                 nome_fantasia = request.form.get('nome_fantasia')
                 cnpj = request.form.get('cnpj')
                 telefone = request.form.get('telefone')
                 data_validade_str = request.form.get('data_validade')
-                observacoes = request.form.get('observacoes')
+                observacoes = request.form.get('observacoes', '')  # Campo opcional
 
+                logger.info('Validating required fields...')
                 # Validação dos campos obrigatórios
-                if not all([razao_social, nome_fantasia, cnpj, telefone, data_validade_str]):
-                    flash('Todos os campos obrigatórios devem ser preenchidos.', 'danger')
+                campos_obrigatorios = {
+                    'Razão Social': razao_social,
+                    'Nome Fantasia': nome_fantasia,
+                    'CNPJ': cnpj,
+                    'Telefone': telefone,
+                    'Data de Validade': data_validade_str
+                }
+
+                campos_vazios = [campo for campo, valor in campos_obrigatorios.items() if not valor]
+                if campos_vazios:
+                    mensagem = f'Os seguintes campos são obrigatórios: {", ".join(campos_vazios)}'
+                    logger.warning(f'Validation failed: {mensagem}')
+                    flash(mensagem, 'danger')
                     return render_template('novo_certificado.html')
 
+                logger.info('Converting date...')
                 # Conversão da data
                 try:
                     data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d')
-                except ValueError:
-                    flash('Data de validade inválida.', 'danger')
+                except ValueError as e:
+                    logger.error(f'Date conversion error: {str(e)}')
+                    flash('Data de validade inválida. Use o formato YYYY-MM-DD.', 'danger')
                     return render_template('novo_certificado.html')
 
+                logger.info('Checking for existing CNPJ...')
                 # Verifica se já existe um certificado com este CNPJ para este usuário
                 certificado_existente = Certificado.query.filter_by(
                     user_id=current_user.id,
@@ -233,9 +253,11 @@ def novo_certificado():
                 ).first()
 
                 if certificado_existente:
+                    logger.warning(f'Duplicate CNPJ found: {cnpj}')
                     flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
                     return render_template('novo_certificado.html')
 
+                logger.info('Creating certificate object...')
                 # Cria o certificado com status automático
                 certificado = Certificado(
                     razao_social=razao_social,
@@ -249,7 +271,9 @@ def novo_certificado():
                 
                 # Define o status automaticamente
                 certificado.atualizar_status()
+                logger.info(f'Certificate status set to: {certificado.status}')
 
+                logger.info('Saving to database...')
                 db.session.add(certificado)
                 db.session.commit()
                 logger.info(f'Certificate created successfully: {razao_social}')
@@ -258,14 +282,14 @@ def novo_certificado():
                 return redirect(url_for('listar_certificados'))
 
             except Exception as e:
-                logger.error(f'Error processing form data: {str(e)}')
+                logger.error(f'Detailed error in form processing: {str(e)}', exc_info=True)
                 db.session.rollback()
-                flash('Erro ao processar os dados do formulário. Por favor, verifique os campos e tente novamente.', 'danger')
+                flash(f'Erro ao processar os dados do formulário: {str(e)}', 'danger')
                 return render_template('novo_certificado.html')
 
         return render_template('novo_certificado.html')
     except Exception as e:
-        logger.error(f'Error in novo_certificado route: {str(e)}')
+        logger.error(f'General error in novo_certificado route: {str(e)}', exc_info=True)
         db.session.rollback()
         flash('Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.', 'danger')
         return render_template('novo_certificado.html')

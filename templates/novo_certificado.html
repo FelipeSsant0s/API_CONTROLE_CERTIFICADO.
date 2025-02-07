@@ -24,7 +24,8 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label for="razao_social" class="form-label">Razão Social</label>
-                                <input type="text" class="form-control" id="razao_social" name="razao_social" required>
+                                <input type="text" class="form-control" id="razao_social" name="razao_social" 
+                                       value="{{ request.form.get('razao_social', '') }}" required>
                                 <div class="invalid-feedback">
                                     Por favor, informe a razão social.
                                 </div>
@@ -32,7 +33,8 @@
                             
                             <div class="col-md-6">
                                 <label for="nome_fantasia" class="form-label">Nome Fantasia</label>
-                                <input type="text" class="form-control" id="nome_fantasia" name="nome_fantasia" required>
+                                <input type="text" class="form-control" id="nome_fantasia" name="nome_fantasia" 
+                                       value="{{ request.form.get('nome_fantasia', '') }}" required>
                                 <div class="invalid-feedback">
                                     Por favor, informe o nome fantasia.
                                 </div>
@@ -41,8 +43,9 @@
                             <div class="col-md-6">
                                 <label for="cnpj" class="form-label">CNPJ</label>
                                 <input type="text" class="form-control" id="cnpj" name="cnpj" 
-                                    pattern="\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}" 
-                                    placeholder="00.000.000/0000-00" required>
+                                       value="{{ request.form.get('cnpj', '') }}"
+                                       pattern="\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}" 
+                                       placeholder="00.000.000/0000-00" required>
                                 <div class="invalid-feedback">
                                     Por favor, informe um CNPJ válido.
                                 </div>
@@ -51,8 +54,9 @@
                             <div class="col-md-6">
                                 <label for="telefone" class="form-label">Telefone para Contato</label>
                                 <input type="tel" class="form-control" id="telefone" name="telefone" 
-                                    pattern="\(\d{2}\) \d{4,5}-\d{4}" 
-                                    placeholder="(00) 00000-0000" required>
+                                       value="{{ request.form.get('telefone', '') }}"
+                                       pattern="\(\d{2}\) \d{4,5}-\d{4}" 
+                                       placeholder="(00) 00000-0000" required>
                                 <div class="invalid-feedback">
                                     Por favor, informe um telefone válido.
                                 </div>
@@ -66,7 +70,8 @@
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label for="data_validade" class="form-label">Data de Validade</label>
-                                <input type="date" class="form-control" id="data_validade" name="data_validade" required>
+                                <input type="date" class="form-control" id="data_validade" name="data_validade" 
+                                       value="{{ request.form.get('data_validade', '') }}" required>
                                 <div class="invalid-feedback">
                                     Por favor, selecione a data de validade.
                                 </div>
@@ -74,7 +79,7 @@
 
                             <div class="col-12">
                                 <label for="observacoes" class="form-label">Observações</label>
-                                <textarea class="form-control" id="observacoes" name="observacoes" rows="3"></textarea>
+                                <textarea class="form-control" id="observacoes" name="observacoes" rows="3">{{ request.form.get('observacoes', '') }}</textarea>
                             </div>
                         </div>
 
@@ -136,6 +141,26 @@ document.getElementById('telefone').addEventListener('input', function (e) {
 
 // Set minimum date as today for data_validade
 document.getElementById('data_validade').min = new Date().toISOString().split('T')[0];
+
+// Adiciona validação personalizada para CNPJ
+document.getElementById('cnpj').addEventListener('change', function(e) {
+    const cnpj = e.target.value.replace(/[^\d]/g, '');
+    if (cnpj.length !== 14) {
+        this.setCustomValidity('CNPJ deve ter 14 dígitos');
+    } else {
+        this.setCustomValidity('');
+    }
+});
+
+// Adiciona validação personalizada para telefone
+document.getElementById('telefone').addEventListener('change', function(e) {
+    const telefone = e.target.value.replace(/[^\d]/g, '');
+    if (telefone.length < 10 || telefone.length > 11) {
+        this.setCustomValidity('Telefone deve ter 10 ou 11 dígitos');
+    } else {
+        this.setCustomValidity('');
+    }
+});
 </script>
 {% endblock %}
 
