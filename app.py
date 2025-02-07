@@ -205,49 +205,70 @@ def novo_certificado():
     try:
         if request.method == 'POST':
             logger.info('Creating new certificate')
-            razao_social = request.form['razao_social']
-            nome_fantasia = request.form['nome_fantasia']
-            cnpj = request.form['cnpj']
-            telefone = request.form['telefone']
-            data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
-            observacoes = request.form['observacoes']
+            try:
+                # Captura todos os campos do formulário
+                razao_social = request.form.get('razao_social')
+                nome_fantasia = request.form.get('nome_fantasia')
+                cnpj = request.form.get('cnpj')
+                telefone = request.form.get('telefone')
+                data_validade_str = request.form.get('data_validade')
+                observacoes = request.form.get('observacoes')
 
-            # Verifica se já existe um certificado com este CNPJ para este usuário
-            certificado_existente = Certificado.query.filter_by(
-                user_id=current_user.id,
-                cnpj=cnpj
-            ).first()
+                # Validação dos campos obrigatórios
+                if not all([razao_social, nome_fantasia, cnpj, telefone, data_validade_str]):
+                    flash('Todos os campos obrigatórios devem ser preenchidos.', 'danger')
+                    return render_template('novo_certificado.html')
 
-            if certificado_existente:
-                flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
+                # Conversão da data
+                try:
+                    data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d')
+                except ValueError:
+                    flash('Data de validade inválida.', 'danger')
+                    return render_template('novo_certificado.html')
+
+                # Verifica se já existe um certificado com este CNPJ para este usuário
+                certificado_existente = Certificado.query.filter_by(
+                    user_id=current_user.id,
+                    cnpj=cnpj
+                ).first()
+
+                if certificado_existente:
+                    flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
+                    return render_template('novo_certificado.html')
+
+                # Cria o certificado com status automático
+                certificado = Certificado(
+                    razao_social=razao_social,
+                    nome_fantasia=nome_fantasia,
+                    cnpj=cnpj,
+                    telefone=telefone,
+                    data_validade=data_validade,
+                    observacoes=observacoes,
+                    user_id=current_user.id
+                )
+                
+                # Define o status automaticamente
+                certificado.atualizar_status()
+
+                db.session.add(certificado)
+                db.session.commit()
+                logger.info(f'Certificate created successfully: {razao_social}')
+
+                flash('Certificado criado com sucesso!', 'success')
+                return redirect(url_for('listar_certificados'))
+
+            except Exception as e:
+                logger.error(f'Error processing form data: {str(e)}')
+                db.session.rollback()
+                flash('Erro ao processar os dados do formulário. Por favor, verifique os campos e tente novamente.', 'danger')
                 return render_template('novo_certificado.html')
-
-            # Cria o certificado com status automático
-            certificado = Certificado(
-                razao_social=razao_social,
-                nome_fantasia=nome_fantasia,
-                cnpj=cnpj,
-                telefone=telefone,
-                data_validade=data_validade,
-                observacoes=observacoes,
-                user_id=current_user.id
-            )
-            
-            # Define o status automaticamente
-            certificado.atualizar_status()
-
-            db.session.add(certificado)
-            db.session.commit()
-            logger.info(f'Certificate created successfully: {razao_social}')
-
-            flash('Certificado criado com sucesso!', 'success')
-            return redirect(url_for('listar_certificados'))
 
         return render_template('novo_certificado.html')
     except Exception as e:
         logger.error(f'Error in novo_certificado route: {str(e)}')
         db.session.rollback()
-        return render_template('500.html'), 500
+        flash('Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.', 'danger')
+        return render_template('novo_certificado.html')
 
 @app.route('/certificados/<int:id>/editar', methods=['GET', 'POST'])
 @login_required
@@ -259,40 +280,67 @@ def editar_certificado(id):
         
         if request.method == 'POST':
             logger.info(f'Updating certificate {id}')
-            novo_cnpj = request.form['cnpj']
+            try:
+                # Captura todos os campos do formulário
+                razao_social = request.form.get('razao_social')
+                nome_fantasia = request.form.get('nome_fantasia')
+                novo_cnpj = request.form.get('cnpj')
+                telefone = request.form.get('telefone')
+                data_validade_str = request.form.get('data_validade')
+                observacoes = request.form.get('observacoes')
 
-            # Verifica se o novo CNPJ já existe para outro certificado do mesmo usuário
-            if novo_cnpj != certificado.cnpj:
-                certificado_existente = Certificado.query.filter_by(
-                    user_id=current_user.id,
-                    cnpj=novo_cnpj
-                ).first()
-
-                if certificado_existente:
-                    flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
+                # Validação dos campos obrigatórios
+                if not all([razao_social, nome_fantasia, novo_cnpj, telefone, data_validade_str]):
+                    flash('Todos os campos obrigatórios devem ser preenchidos.', 'danger')
                     return render_template('editar_certificado.html', certificado=certificado)
 
-            certificado.razao_social = request.form['razao_social']
-            certificado.nome_fantasia = request.form['nome_fantasia']
-            certificado.cnpj = novo_cnpj
-            certificado.telefone = request.form['telefone']
-            certificado.data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
-            certificado.observacoes = request.form['observacoes']
-            
-            # Atualiza o status automaticamente
-            certificado.atualizar_status()
-            
-            db.session.commit()
-            logger.info(f'Certificate updated successfully: {certificado.razao_social}')
-            
-            flash('Certificado atualizado com sucesso!', 'success')
-            return redirect(url_for('listar_certificados'))
+                # Conversão da data
+                try:
+                    data_validade = datetime.strptime(data_validade_str, '%Y-%m-%d')
+                except ValueError:
+                    flash('Data de validade inválida.', 'danger')
+                    return render_template('editar_certificado.html', certificado=certificado)
+
+                # Verifica se o novo CNPJ já existe para outro certificado do mesmo usuário
+                if novo_cnpj != certificado.cnpj:
+                    certificado_existente = Certificado.query.filter_by(
+                        user_id=current_user.id,
+                        cnpj=novo_cnpj
+                    ).first()
+
+                    if certificado_existente:
+                        flash('Já existe um certificado cadastrado com este CNPJ.', 'danger')
+                        return render_template('editar_certificado.html', certificado=certificado)
+
+                # Atualiza os dados do certificado
+                certificado.razao_social = razao_social
+                certificado.nome_fantasia = nome_fantasia
+                certificado.cnpj = novo_cnpj
+                certificado.telefone = telefone
+                certificado.data_validade = data_validade
+                certificado.observacoes = observacoes
+                
+                # Atualiza o status automaticamente
+                certificado.atualizar_status()
+                
+                db.session.commit()
+                logger.info(f'Certificate updated successfully: {certificado.razao_social}')
+                
+                flash('Certificado atualizado com sucesso!', 'success')
+                return redirect(url_for('listar_certificados'))
+
+            except Exception as e:
+                logger.error(f'Error processing form data: {str(e)}')
+                db.session.rollback()
+                flash('Erro ao processar os dados do formulário. Por favor, verifique os campos e tente novamente.', 'danger')
+                return render_template('editar_certificado.html', certificado=certificado)
         
         return render_template('editar_certificado.html', certificado=certificado)
     except Exception as e:
         logger.error(f'Error in editar_certificado route: {str(e)}')
         db.session.rollback()
-        return render_template('500.html'), 500
+        flash('Ocorreu um erro ao processar sua solicitação. Por favor, tente novamente.', 'danger')
+        return render_template('editar_certificado.html', certificado=certificado)
 
 @app.route('/certificados/<int:id>/deletar', methods=['POST'])
 @login_required
