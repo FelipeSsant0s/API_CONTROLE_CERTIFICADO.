@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, abort
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime, timedelta
 import os
@@ -140,6 +140,54 @@ def novo_certificado():
         logger.error(f'Error in novo_certificado route: {str(e)}')
         db.session.rollback()
         return render_template('500.html'), 500
+
+@app.route('/certificados/<int:id>/editar', methods=['GET', 'POST'])
+def editar_certificado(id):
+    try:
+        certificado = Certificado.query.get_or_404(id)
+        
+        if request.method == 'POST':
+            logger.info(f'Updating certificate {id}')
+            certificado.razao_social = request.form['razao_social']
+            certificado.nome_fantasia = request.form['nome_fantasia']
+            certificado.cnpj = request.form['cnpj']
+            certificado.telefone = request.form['telefone']
+            certificado.data_validade = datetime.strptime(request.form['data_validade'], '%Y-%m-%d')
+            certificado.observacoes = request.form['observacoes']
+            
+            # Atualiza o status automaticamente
+            certificado.atualizar_status()
+            
+            db.session.commit()
+            logger.info(f'Certificate updated successfully: {certificado.razao_social}')
+            
+            flash('Certificado atualizado com sucesso!', 'success')
+            return redirect(url_for('listar_certificados'))
+        
+        return render_template('editar_certificado.html', certificado=certificado)
+    except Exception as e:
+        logger.error(f'Error in editar_certificado route: {str(e)}')
+        db.session.rollback()
+        return render_template('500.html'), 500
+
+@app.route('/certificados/<int:id>/deletar', methods=['POST'])
+def deletar_certificado(id):
+    try:
+        certificado = Certificado.query.get_or_404(id)
+        razao_social = certificado.razao_social
+        
+        db.session.delete(certificado)
+        db.session.commit()
+        
+        logger.info(f'Certificate deleted successfully: {razao_social}')
+        flash('Certificado excluído com sucesso!', 'success')
+        
+        return redirect(url_for('listar_certificados'))
+    except Exception as e:
+        logger.error(f'Error in deletar_certificado route: {str(e)}')
+        db.session.rollback()
+        flash('Erro ao excluir certificado.', 'danger')
+        return redirect(url_for('listar_certificados'))
 
 @app.route('/certificados/exportar')
 def exportar_certificados():

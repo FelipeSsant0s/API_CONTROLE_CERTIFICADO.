@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- Page Header -->
+<div class="page-header">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-md-6">
+                <h1 class="fw-bold">Editar Certificado</h1>
+                <p class="text-muted mb-0">Atualize as informações do certificado</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-body p-4">
+                    <form method="POST" class="needs-validation" novalidate>
+                        <!-- Dados da Empresa -->
+                        <h5 class="mb-4"><i class="fas fa-building me-2"></i>Dados da Empresa</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="razao_social" class="form-label">Razão Social</label>
+                                <input type="text" class="form-control" id="razao_social" name="razao_social" 
+                                       value="{{ certificado.razao_social }}" required>
+                                <div class="invalid-feedback">
+                                    Por favor, informe a razão social.
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="nome_fantasia" class="form-label">Nome Fantasia</label>
+                                <input type="text" class="form-control" id="nome_fantasia" name="nome_fantasia" 
+                                       value="{{ certificado.nome_fantasia }}" required>
+                                <div class="invalid-feedback">
+                                    Por favor, informe o nome fantasia.
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <label for="cnpj" class="form-label">CNPJ</label>
+                                <input type="text" class="form-control" id="cnpj" name="cnpj" 
+                                       value="{{ certificado.cnpj }}"
+                                       pattern="\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}" 
+                                       placeholder="00.000.000/0000-00" required>
+                                <div class="invalid-feedback">
+                                    Por favor, informe um CNPJ válido.
+                                </div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="telefone" class="form-label">Telefone para Contato</label>
+                                <input type="tel" class="form-control" id="telefone" name="telefone" 
+                                       value="{{ certificado.telefone }}"
+                                       pattern="\(\d{2}\) \d{4,5}-\d{4}" 
+                                       placeholder="(00) 00000-0000" required>
+                                <div class="invalid-feedback">
+                                    Por favor, informe um telefone válido.
+                                </div>
+                            </div>
+                        </div>
+
+                        <hr class="my-4">
+
+                        <!-- Dados do Certificado -->
+                        <h5 class="mb-4"><i class="fas fa-certificate me-2"></i>Dados do Certificado</h5>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="data_validade" class="form-label">Data de Validade</label>
+                                <input type="date" class="form-control" id="data_validade" name="data_validade" 
+                                       value="{{ certificado.data_validade.strftime('%Y-%m-%d') }}" required>
+                                <div class="invalid-feedback">
+                                    Por favor, selecione a data de validade.
+                                </div>
+                            </div>
+
+                            <div class="col-12">
+                                <label for="observacoes" class="form-label">Observações</label>
+                                <textarea class="form-control" id="observacoes" name="observacoes" rows="3">{{ certificado.observacoes }}</textarea>
+                            </div>
+                        </div>
+
+                        <!-- Status Info -->
+                        <div class="alert alert-info mt-4">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Informação:</strong> O status será atualizado automaticamente com base na data de validade:
+                            <ul class="mb-0 mt-2">
+                                <li>Expirado: quando a data de validade for anterior à data atual</li>
+                                <li>Próximo ao Vencimento: quando faltar 30 dias ou menos para vencer</li>
+                                <li>Válido: quando faltar mais de 30 dias para vencer</li>
+                            </ul>
+                        </div>
+
+                        <!-- Buttons -->
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <a href="{{ url_for('listar_certificados') }}" class="btn btn-outline-secondary me-md-2">
+                                <i class="fas fa-times me-2"></i>Cancelar
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-2"></i>Salvar Alterações
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+// Form validation
+(function () {
+    'use strict'
+    var forms = document.querySelectorAll('.needs-validation')
+    Array.prototype.slice.call(forms).forEach(function (form) {
+        form.addEventListener('submit', function (event) {
+            if (!form.checkValidity()) {
+                event.preventDefault()
+                event.stopPropagation()
+            }
+            form.classList.add('was-validated')
+        }, false)
+    })
+})()
+
+// Máscara para CNPJ
+document.getElementById('cnpj').addEventListener('input', function (e) {
+    let x = e.target.value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,3})(\d{0,3})(\d{0,4})(\d{0,2})/);
+    e.target.value = !x[2] ? x[1] : x[1] + '.' + x[2] + '.' + x[3] + '/' + x[4] + (x[5] ? '-' + x[5] : '');
+});
+
+// Máscara para telefone
+document.getElementById('telefone').addEventListener('input', function (e) {
+    let x = e.target.value.replace(/\D/g, '').match(/(\d{0,2})(\d{0,5})(\d{0,4})/);
+    e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? '-' + x[3] : '');
+});
+</script>
+{% endblock %}
+
+{% endblock %} 
