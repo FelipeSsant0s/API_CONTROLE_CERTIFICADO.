@@ -127,10 +127,16 @@
                             <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.nome_fantasia }}</td>
                             <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.cnpj }}</td>
                             <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.telefone }}</td>
-                            <td class="text-nowrap" style="font-size: 0.875rem;">{{ certificado.data_validade.strftime('%d/%m/%Y') }}</td>
+                            <td class="text-nowrap" style="font-size: 0.875rem;">
+                                {% if certificado.data_validade %}
+                                    {{ certificado.data_validade.strftime('%d/%m/%Y') }}
+                                {% else %}
+                                    <span class="text-muted">N/A</span>
+                                {% endif %}
+                            </td>
                             <td>
-                                <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% else %}bg-danger{% endif %}" style="font-size: 0.75rem;">
-                                    <i class="fas {% if certificado.status == 'Válido' %}fa-check-circle{% elif certificado.status == 'Próximo ao Vencimento' %}fa-exclamation-circle{% else %}fa-times-circle{% endif %} me-1"></i>
+                                <span class="badge {% if certificado.status == 'Válido' %}bg-success{% elif certificado.status == 'Próximo ao Vencimento' %}bg-warning{% elif certificado.status == 'Erro' %}bg-secondary{% else %}bg-danger{% endif %}" style="font-size: 0.75rem;">
+                                    <i class="fas {% if certificado.status == 'Válido' %}fa-check-circle{% elif certificado.status == 'Próximo ao Vencimento' %}fa-exclamation-circle{% elif certificado.status == 'Erro' %}fa-question-circle{% else %}fa-times-circle{% endif %} me-1"></i>
                                     {{ certificado.status }}
                                 </span>
                             </td>
