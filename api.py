@@ -1,4 +1,4 @@
-from flask import Flask, Blueprint, jsonify, request
+from flask import Blueprint, jsonify, request
 from flask_login import LoginManager, login_required, current_user
 from models import db, Certificado, User
 from datetime import datetime, timedelta
@@ -7,31 +7,11 @@ from functools import wraps
 import logging
 import os
 
-# Create Flask application for API
-api_app = Flask(__name__)
+# Create API Blueprint
+api_bp = Blueprint('api', __name__)
 
-# Configure API application
-api_app.config['SECRET_KEY'] = os.environ.get('API_SECRET_KEY', 'api-secret-key')
-api_app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
-
-# Database configuration
-database_url = os.environ.get('DATABASE_URL')
-if database_url:
-    database_url = database_url.replace('postgres://', 'postgresql://')
-else:
-    database_url = 'sqlite:///certificados.db'
-
-api_app.config['SQLALCHEMY_DATABASE_URI'] = database_url
-api_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-# Initialize extensions
-db.init_app(api_app)
-login_manager = LoginManager(api_app)
-login_manager.login_view = 'api.login'
-
-@login_manager.user_loader
-def load_user(user_id):
-    return User.query.get(int(user_id))
+# Configure logging
+logger = logging.getLogger(__name__)
 
 def token_required(f):
     @wraps(f)
@@ -42,7 +22,7 @@ def token_required(f):
         
         try:
             token = token.split(' ')[1]  # Remove o 'Bearer ' do token
-            data = jwt.decode(token, api_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
+            data = jwt.decode(token, os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key'), algorithms=['HS256'])
             current_user = User.query.get(data['user_id'])
         except:
             return jsonify({'message': 'Token inválido'}), 401
@@ -51,7 +31,7 @@ def token_required(f):
     return decorated
 
 # API Routes
-@api_app.route('/api/auth/login', methods=['POST'])
+@api_bp.route('/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
@@ -62,7 +42,7 @@ def login():
         token = jwt.encode({
             'user_id': user.id,
             'exp': datetime.utcnow() + timedelta(days=1)
-        }, api_app.config['JWT_SECRET_KEY'])
+        }, os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key'))
         
         return jsonify({
             'token': token,
@@ -75,7 +55,7 @@ def login():
     
     return jsonify({'message': 'Credenciais inválidas'}), 401
 
-@api_app.route('/api/certificados', methods=['GET'])
+@api_bp.route('/certificados', methods=['GET'])
 @token_required
 def get_certificados(current_user):
     try:
@@ -95,7 +75,7 @@ def get_certificados(current_user):
         logger.error(f"Erro ao buscar certificados: {str(e)}")
         return jsonify({'error': 'Erro ao buscar certificados'}), 500
 
-@api_app.route('/api/certificados/<int:id>', methods=['GET'])
+@api_bp.route('/certificados/<int:id>', methods=['GET'])
 @token_required
 def get_certificado(current_user, id):
     certificado = Certificado.query.filter_by(id=id, user_id=current_user.id).first_or_404()
@@ -111,7 +91,7 @@ def get_certificado(current_user, id):
         'observacoes': certificado.observacoes
     })
 
-@api_app.route('/api/certificados', methods=['POST'])
+@api_bp.route('/certificados', methods=['POST'])
 @token_required
 def create_certificado(current_user):
     data = request.get_json()
@@ -148,7 +128,7 @@ def create_certificado(current_user):
         'id': certificado.id
     }), 201
 
-@api_app.route('/api/certificados/<int:id>', methods=['PUT'])
+@api_bp.route('/certificados/<int:id>', methods=['PUT'])
 @token_required
 def update_certificado(current_user, id):
     certificado = Certificado.query.filter_by(id=id, user_id=current_user.id).first_or_404()
@@ -180,7 +160,7 @@ def update_certificado(current_user, id):
     
     return jsonify({'message': 'Certificado atualizado com sucesso'})
 
-@api_app.route('/api/certificados/<int:id>', methods=['DELETE'])
+@api_bp.route('/certificados/<int:id>', methods=['DELETE'])
 @token_required
 def delete_certificado(current_user, id):
     certificado = Certificado.query.filter_by(id=id, user_id=current_user.id).first_or_404()
@@ -191,7 +171,7 @@ def delete_certificado(current_user, id):
     return jsonify({'message': 'Certificado excluído com sucesso'})
 
 # Endpoint para estatísticas
-@api_app.route('/api/dashboard/stats', methods=['GET'])
+@api_bp.route('/dashboard/stats', methods=['GET'])
 @token_required
 def get_stats(current_user):
     certificados = Certificado.query.filter_by(user_id=current_user.id).all()
@@ -203,9 +183,4 @@ def get_stats(current_user):
         'validos': sum(1 for c in certificados if c.status == 'Válido')
     }
     
-    return jsonify(stats)
-
-if __name__ == '__main__':
-    with api_app.app_context():
-        db.create_all()
-    api_app.run(debug=True) 
+    return jsonify(stats) 

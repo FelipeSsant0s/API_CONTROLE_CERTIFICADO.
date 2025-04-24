@@ -45,6 +45,9 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, faça login para acessar esta página.'
 login_manager.login_message_category = 'info'
 
+# Register blueprints
+app.register_blueprint(api_bp, url_prefix='/api')
+
 # Configuração para upload de arquivos
 UPLOAD_FOLDER = 'uploads/xml'
 ALLOWED_EXTENSIONS = {'xml'}
