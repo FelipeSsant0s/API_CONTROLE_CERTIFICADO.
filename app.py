@@ -11,8 +11,10 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from api import api
-from models import db, User, Certificado
+from models import db, User, Certificado, XMLUpload
+from werkzeug.utils import secure_filename
+import xml.etree.ElementTree as ET
+from api import api_bp
 
 # Configuração de logging
 logging.basicConfig(
@@ -28,9 +30,6 @@ logger = logging.getLogger(__name__)
 # Create Flask application
 app = Flask(__name__)
 logger.info('Initializing Flask application...')
-
-# Registrar o Blueprint da API
-app.register_blueprint(api, url_prefix='/api')
 
 # Configure application
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
@@ -53,6 +52,17 @@ login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, faça login para acessar esta página.'
 login_manager.login_message_category = 'info'
+
+# Configuração para upload de arquivos
+UPLOAD_FOLDER = 'uploads/xml'
+ALLOWED_EXTENSIONS = {'xml'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Garantir que o diretório de upload existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -174,100 +184,35 @@ def index():
         logger.error(f'Error in index route: {str(e)}')
         return render_template('500.html'), 500
 
-@app.route('/certificados', methods=['GET'])
+@app.route('/certificados')
 @login_required
 def listar_certificados():
-    try:
-        logger.info('Iniciando listagem de certificados')
-        logger.info(f'Usuário: {current_user.username} (ID: {current_user.id})')
-        
-        # Obter parâmetros de busca e filtro
-        search_query = request.args.get('search', '').strip()
-        data_inicial = request.args.get('data_inicial', '')
-        data_final = request.args.get('data_final', '')
-        
-        logger.debug(f'Parâmetros de busca: search={search_query}, data_inicial={data_inicial}, data_final={data_final}')
-        
-        try:
-            # Iniciar a query base
-            query = Certificado.query.filter_by(user_id=current_user.id)
-            logger.debug('Query base criada com sucesso')
-            
-            # Aplicar busca se houver termo de pesquisa
-            if search_query:
-                search_term = f"%{search_query}%"
-                query = query.filter(
-                    db.or_(
-                        Certificado.nome_fantasia.ilike(search_term),
-                        Certificado.razao_social.ilike(search_term),
-                        Certificado.cnpj.ilike(search_term)
-                    )
-                )
-                logger.debug(f'Filtro de busca aplicado: {search_query}')
-            
-            # Aplicar filtro de data se as datas forem fornecidas
-            if data_inicial:
-                try:
-                    data_inicial = datetime.strptime(data_inicial, '%Y-%m-%d')
-                    query = query.filter(Certificado.data_validade >= data_inicial)
-                    logger.debug(f'Filtro de data inicial aplicado: {data_inicial}')
-                except ValueError as e:
-                    logger.warning(f'Data inicial inválida: {e}')
-                    flash('Data inicial inválida', 'warning')
-            
-            if data_final:
-                try:
-                    data_final = datetime.strptime(data_final, '%Y-%m-%d')
-                    # Adiciona 1 dia à data final para incluir todo o último dia
-                    data_final = data_final + timedelta(days=1)
-                    query = query.filter(Certificado.data_validade < data_final)
-                    logger.debug(f'Filtro de data final aplicado: {data_final}')
-                except ValueError as e:
-                    logger.warning(f'Data final inválida: {e}')
-                    flash('Data final inválida', 'warning')
-            
-            # Executar a query
-            logger.debug('Executando query final')
-            certificados = query.all()
-            logger.info(f'Total de certificados encontrados: {len(certificados)}')
-            
-            # Atualizar status dos certificados
-            logger.debug('Iniciando atualização de status dos certificados')
-            for certificado in certificados:
-                try:
-                    certificado.atualizar_status()
-                except Exception as e:
-                    logger.error(f'Erro ao atualizar status do certificado {certificado.id}: {str(e)}')
-                    continue
-            
-            try:
-                db.session.commit()
-                logger.debug('Status dos certificados atualizados com sucesso')
-            except Exception as e:
-                logger.error(f'Erro ao salvar atualizações de status: {str(e)}')
-                db.session.rollback()
-                flash('Erro ao atualizar status dos certificados', 'warning')
-            
-            return render_template('certificados.html', 
-                                certificados=certificados,
-                                search_query=search_query,
-                                data_inicial=request.args.get('data_inicial', ''),
-                                data_final=request.args.get('data_final', ''))
-                                
-        except Exception as e:
-            logger.error(f'Erro ao processar query do banco de dados: {str(e)}', exc_info=True)
-            db.session.rollback()
-            flash('Erro ao buscar certificados no banco de dados', 'danger')
-            return render_template('certificados.html', 
-                                certificados=[],
-                                search_query=search_query,
-                                data_inicial=data_inicial,
-                                data_final=data_final)
-            
-    except Exception as e:
-        logger.error(f'Erro crítico em listar_certificados: {str(e)}', exc_info=True)
-        db.session.rollback()
-        return render_template('500.html'), 500
+    search_query = request.args.get('search', '')
+    data_inicial = request.args.get('data_inicial', '')
+    data_final = request.args.get('data_final', '')
+    
+    query = Certificado.query
+    
+    if search_query:
+        query = query.filter(
+            (Certificado.nome_fantasia.ilike(f'%{search_query}%')) |
+            (Certificado.razao_social.ilike(f'%{search_query}%')) |
+            (Certificado.cnpj.ilike(f'%{search_query}%'))
+        )
+    
+    if data_inicial:
+        query = query.filter(Certificado.data_validade >= datetime.strptime(data_inicial, '%Y-%m-%d'))
+    
+    if data_final:
+        query = query.filter(Certificado.data_validade <= datetime.strptime(data_final, '%Y-%m-%d'))
+    
+    certificados = query.order_by(Certificado.data_validade.asc()).all()
+    
+    return render_template('certificados.html', 
+                         certificados=certificados,
+                         search_query=search_query,
+                         data_inicial=data_inicial,
+                         data_final=data_final)
 
 @app.route('/certificados/novo', methods=['GET', 'POST'])
 @login_required
@@ -724,9 +669,119 @@ def nova_senha():
     
     return render_template('nova_senha.html')
 
-@app.route('/xml_upload')
+@app.route('/xml_upload', methods=['GET', 'POST'])
 @login_required
 def xml_upload():
+    if request.method == 'POST':
+        try:
+            # Verifica se o arquivo foi enviado
+            if 'file' not in request.files:
+                flash('Nenhum arquivo enviado', 'danger')
+                return redirect(request.url)
+            
+            file = request.files['file']
+            
+            # Verifica se um arquivo foi selecionado
+            if file.filename == '':
+                flash('Nenhum arquivo selecionado', 'danger')
+                return redirect(request.url)
+            
+            # Verifica se é um arquivo XML
+            if not file.filename.endswith('.xml'):
+                flash('Tipo de arquivo não permitido. Apenas XML é aceito.', 'danger')
+                return redirect(request.url)
+            
+            # Salva o arquivo
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            file.save(filepath)
+            
+            # Cria registro do upload
+            xml_upload = XMLUpload(
+                filename=filename,
+                file_path=filepath,
+                user_id=current_user.id,
+                status='Processando'
+            )
+            db.session.add(xml_upload)
+            db.session.commit()
+            
+            # Processa o XML
+            try:
+                tree = ET.parse(filepath)
+                root = tree.getroot()
+                
+                # Conta total de certificados no XML
+                total_certificados = len(root.findall('certificado'))
+                xml_upload.total_certificados = total_certificados
+                db.session.commit()
+                
+                # Processa cada certificado
+                for certificado_xml in root.findall('certificado'):
+                    try:
+                        razao_social = certificado_xml.find('razao_social').text
+                        nome_fantasia = certificado_xml.find('nome_fantasia').text
+                        cnpj = certificado_xml.find('cnpj').text
+                        telefone = certificado_xml.find('telefone').text
+                        data_validade = datetime.fromisoformat(certificado_xml.find('data_validade').text)
+                        
+                        # Verifica se já existe certificado com o mesmo CNPJ
+                        certificado_existente = Certificado.query.filter_by(
+                            cnpj=cnpj,
+                            user_id=current_user.id
+                        ).first()
+                        
+                        if certificado_existente:
+                            # Atualiza o certificado existente
+                            certificado_existente.razao_social = razao_social
+                            certificado_existente.nome_fantasia = nome_fantasia
+                            certificado_existente.telefone = telefone
+                            certificado_existente.data_validade = data_validade
+                            certificado_existente.observacoes = f"Atualizado via XML em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+                            certificado_existente.xml_upload_id = xml_upload.id
+                        else:
+                            # Cria novo certificado
+                            novo_certificado = Certificado(
+                                razao_social=razao_social,
+                                nome_fantasia=nome_fantasia,
+                                cnpj=cnpj,
+                                telefone=telefone,
+                                data_validade=data_validade,
+                                observacoes=f"Importado via XML em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
+                                user_id=current_user.id,
+                                xml_upload_id=xml_upload.id
+                            )
+                            db.session.add(novo_certificado)
+                        
+                        xml_upload.certificados_processados += 1
+                        db.session.commit()
+                        
+                    except Exception as e:
+                        logger.error(f'Erro ao processar certificado do XML: {str(e)}')
+                        continue
+                
+                xml_upload.status = 'Concluído'
+                db.session.commit()
+                
+                flash('Arquivo XML processado com sucesso!', 'success')
+                return redirect(url_for('listar_certificados'))
+                
+            except ET.ParseError as e:
+                xml_upload.status = 'Erro'
+                xml_upload.error_message = f'Erro ao processar XML: {str(e)}'
+                db.session.commit()
+                flash(f'Erro ao processar XML: {str(e)}', 'danger')
+                return redirect(request.url)
+            
+        except Exception as e:
+            logger.error(f'Erro no upload de XML: {str(e)}')
+            if 'xml_upload' in locals():
+                xml_upload.status = 'Erro'
+                xml_upload.error_message = f'Erro interno do servidor: {str(e)}'
+                db.session.commit()
+            flash('Erro interno do servidor', 'danger')
+            return redirect(request.url)
+    
     return render_template('xml_upload.html')
 
 # Manipulador de erros global

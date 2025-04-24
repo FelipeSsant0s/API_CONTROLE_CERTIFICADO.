@@ -1,6 +1,7 @@
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, timedelta
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
@@ -11,6 +12,7 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(128))
     certificados = db.relationship('Certificado', backref='user', lazy=True)
+    xml_uploads = db.relationship('XMLUpload', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -29,6 +31,7 @@ class Certificado(db.Model):
     observacoes = db.Column(db.Text)
     status = db.Column(db.String(50), default='Válido')
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    xml_upload_id = db.Column(db.Integer, db.ForeignKey('xml_upload.id'), nullable=True)
 
     def atualizar_status(self):
         hoje = datetime.utcnow()
@@ -37,4 +40,16 @@ class Certificado(db.Model):
         elif self.data_validade - hoje <= timedelta(days=30):
             self.status = 'Próximo ao Vencimento'
         else:
-            self.status = 'Válido' 
+            self.status = 'Válido'
+
+class XMLUpload(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    filename = db.Column(db.String(255), nullable=False)
+    file_path = db.Column(db.String(255), nullable=False)
+    upload_date = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(50), default='Processando')
+    error_message = db.Column(db.Text)
+    total_certificados = db.Column(db.Integer, default=0)
+    certificados_processados = db.Column(db.Integer, default=0)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    certificados = db.relationship('Certificado', backref='xml_upload', lazy=True) 

@@ -1,27 +1,91 @@
-from flask import Blueprint, jsonify, request
-from flask_login import login_required, current_user
-from models import db, Certificado, User
+from flask import Flask, Blueprint, jsonify, request
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import LoginManager, login_required, current_user
+from models import db, Certificado, User, XMLUpload
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps
 import xml.etree.ElementTree as ET
 import os
 from werkzeug.utils import secure_filename
+import logging
 
-api = Blueprint('api', __name__)
+# Create Flask application for API
+api_app = Flask(__name__)
 
-# Configuração do JWT
-SECRET_KEY = 'sua-chave-secreta-aqui'  # Em produção, use uma chave segura e armazene em variáveis de ambiente
+# Configure API application
+api_app.config['SECRET_KEY'] = os.environ.get('API_SECRET_KEY', 'api-secret-key')
+api_app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key')
+
+# Database configuration
+database_url = os.environ.get('DATABASE_URL')
+if database_url:
+    database_url = database_url.replace('postgres://', 'postgresql://')
+else:
+    database_url = 'sqlite:///certificados.db'
+
+api_app.config['SQLALCHEMY_DATABASE_URI'] = database_url
+api_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Initialize SQLAlchemy
+db = SQLAlchemy(api_app)
+
+# Initialize LoginManager
+login_manager = LoginManager(api_app)
+login_manager.login_view = 'api.login'
 
 # Configuração para upload de arquivos
-UPLOAD_FOLDER = 'uploads/xml'
+UPLOAD_FOLDER = 'uploads/api/xml'
 ALLOWED_EXTENSIONS = {'xml'}
+api_app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
 # Garantir que o diretório de upload existe
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Models
+class User(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    password_hash = db.Column(db.String(128))
+    certificados = db.relationship('Certificado', backref='user', lazy=True)
+
+    def set_password(self, password):
+        from werkzeug.security import generate_password_hash
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        from werkzeug.security import check_password_hash
+        return check_password_hash(self.password_hash, password)
+
+class Certificado(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    razao_social = db.Column(db.String(200), nullable=False)
+    nome_fantasia = db.Column(db.String(200), nullable=False)
+    cnpj = db.Column(db.String(18), nullable=False)
+    telefone = db.Column(db.String(20), nullable=False)
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_validade = db.Column(db.DateTime, nullable=False)
+    observacoes = db.Column(db.Text)
+    status = db.Column(db.String(50), default='Válido')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    def atualizar_status(self):
+        hoje = datetime.utcnow()
+        if self.data_validade < hoje:
+            self.status = 'Vencido'
+        elif self.data_validade - hoje <= timedelta(days=30):
+            self.status = 'Próximo ao Vencimento'
+        else:
+            self.status = 'Válido'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 def token_required(f):
     @wraps(f)
@@ -32,7 +96,7 @@ def token_required(f):
         
         try:
             token = token.split(' ')[1]  # Remove o 'Bearer ' do token
-            data = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            data = jwt.decode(token, api_app.config['JWT_SECRET_KEY'], algorithms=['HS256'])
             current_user = User.query.get(data['user_id'])
         except:
             return jsonify({'message': 'Token inválido'}), 401
@@ -40,8 +104,8 @@ def token_required(f):
         return f(current_user, *args, **kwargs)
     return decorated
 
-# Rota de autenticação para gerar token
-@api.route('/auth/login', methods=['POST'])
+# API Routes
+@api_app.route('/api/auth/login', methods=['POST'])
 def login():
     data = request.get_json()
     username = data.get('username')
@@ -52,7 +116,7 @@ def login():
         token = jwt.encode({
             'user_id': user.id,
             'exp': datetime.utcnow() + timedelta(days=1)
-        }, SECRET_KEY)
+        }, api_app.config['JWT_SECRET_KEY'])
         
         return jsonify({
             'token': token,
@@ -65,24 +129,27 @@ def login():
     
     return jsonify({'message': 'Credenciais inválidas'}), 401
 
-# Endpoints para Certificados
-@api.route('/certificados', methods=['GET'])
+@api_app.route('/api/certificados', methods=['GET'])
 @token_required
 def get_certificados(current_user):
-    certificados = Certificado.query.filter_by(user_id=current_user.id).all()
-    return jsonify([{
-        'id': c.id,
-        'razao_social': c.razao_social,
-        'nome_fantasia': c.nome_fantasia,
-        'cnpj': c.cnpj,
-        'telefone': c.telefone,
-        'data_emissao': c.data_emissao.isoformat(),
-        'data_validade': c.data_validade.isoformat(),
-        'status': c.status,
-        'observacoes': c.observacoes
-    } for c in certificados])
+    try:
+        certificados = Certificado.query.filter_by(user_id=current_user.id).all()
+        return jsonify([{
+            'id': c.id,
+            'razao_social': c.razao_social,
+            'nome_fantasia': c.nome_fantasia,
+            'cnpj': c.cnpj,
+            'telefone': c.telefone,
+            'data_emissao': c.data_emissao.isoformat(),
+            'data_validade': c.data_validade.isoformat(),
+            'status': c.status,
+            'observacoes': c.observacoes
+        } for c in certificados])
+    except Exception as e:
+        logger.error(f"Erro ao buscar certificados: {str(e)}")
+        return jsonify({'error': 'Erro ao buscar certificados'}), 500
 
-@api.route('/certificados/<int:id>', methods=['GET'])
+@api_app.route('/api/certificados/<int:id>', methods=['GET'])
 @token_required
 def get_certificado(current_user, id):
     certificado = Certificado.query.filter_by(id=id, user_id=current_user.id).first_or_404()
@@ -98,7 +165,7 @@ def get_certificado(current_user, id):
         'observacoes': certificado.observacoes
     })
 
-@api.route('/certificados', methods=['POST'])
+@api_app.route('/api/certificados', methods=['POST'])
 @token_required
 def create_certificado(current_user):
     data = request.get_json()
@@ -135,7 +202,7 @@ def create_certificado(current_user):
         'id': certificado.id
     }), 201
 
-@api.route('/certificados/<int:id>', methods=['PUT'])
+@api_app.route('/api/certificados/<int:id>', methods=['PUT'])
 @token_required
 def update_certificado(current_user, id):
     certificado = Certificado.query.filter_by(id=id, user_id=current_user.id).first_or_404()
@@ -167,7 +234,7 @@ def update_certificado(current_user, id):
     
     return jsonify({'message': 'Certificado atualizado com sucesso'})
 
-@api.route('/certificados/<int:id>', methods=['DELETE'])
+@api_app.route('/api/certificados/<int:id>', methods=['DELETE'])
 @token_required
 def delete_certificado(current_user, id):
     certificado = Certificado.query.filter_by(id=id, user_id=current_user.id).first_or_404()
@@ -178,7 +245,7 @@ def delete_certificado(current_user, id):
     return jsonify({'message': 'Certificado excluído com sucesso'})
 
 # Endpoint para estatísticas
-@api.route('/dashboard/stats', methods=['GET'])
+@api_app.route('/api/dashboard/stats', methods=['GET'])
 @token_required
 def get_stats(current_user):
     certificados = Certificado.query.filter_by(user_id=current_user.id).all()
@@ -193,7 +260,7 @@ def get_stats(current_user):
     return jsonify(stats)
 
 # Endpoint para upload de XML
-@api.route('/xml/upload', methods=['POST'])
+@api_app.route('/api/xml/upload', methods=['POST'])
 @token_required
 def upload_xml(current_user):
     try:
@@ -221,10 +288,7 @@ def upload_xml(current_user):
             tree = ET.parse(filepath)
             root = tree.getroot()
             
-            # Aqui você pode adicionar a lógica para processar o XML
-            # Por exemplo, extrair dados e criar/atualizar certificados
-            
-            # Exemplo de processamento (ajuste conforme sua estrutura XML)
+            # Processa cada certificado
             for certificado_xml in root.findall('certificado'):
                 try:
                     razao_social = certificado_xml.find('razao_social').text
@@ -259,11 +323,11 @@ def upload_xml(current_user):
                         )
                         db.session.add(novo_certificado)
                     
+                    db.session.commit()
+                    
                 except Exception as e:
                     logger.error(f'Erro ao processar certificado do XML: {str(e)}')
                     continue
-            
-            db.session.commit()
             
             return jsonify({
                 'message': 'Arquivo XML processado com sucesso',
@@ -278,7 +342,7 @@ def upload_xml(current_user):
         return jsonify({'message': 'Erro interno do servidor'}), 500
 
 # Endpoint para listar arquivos XML processados
-@api.route('/xml/files', methods=['GET'])
+@api_app.route('/api/xml/files', methods=['GET'])
 @token_required
 def list_xml_files(current_user):
     try:
@@ -295,4 +359,9 @@ def list_xml_files(current_user):
         return jsonify(files)
     except Exception as e:
         logger.error(f'Erro ao listar arquivos XML: {str(e)}')
-        return jsonify({'message': 'Erro interno do servidor'}), 500 
+        return jsonify({'message': 'Erro interno do servidor'}), 500
+
+if __name__ == '__main__':
+    with api_app.app_context():
+        db.create_all()
+    api_app.run(debug=True) 
