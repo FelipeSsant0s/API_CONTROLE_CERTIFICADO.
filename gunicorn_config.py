@@ -18,8 +18,8 @@ graceful_timeout = 120
 keepalive = 5
 
 # Logging
-accesslog = "access.log"
-errorlog = "error.log"
+accesslog = "-"  # Log to stdout
+errorlog = "-"   # Log to stderr
 loglevel = "info"
 access_log_format = '%(h)s %(l)s %(u)s %(t)s "%(r)s" %(s)s %(b)s "%(f)s" "%(a)s" %(L)s'
 capture_output = True
