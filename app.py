@@ -78,26 +78,6 @@ def determinar_status(data_validade):
         logger.error(f'Erro ao determinar status: {str(e)}')
         return 'Erro'
 
-# Define models
-class Certificado(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    razao_social = db.Column(db.String(200), nullable=False)
-    nome_fantasia = db.Column(db.String(200), nullable=False)
-    cnpj = db.Column(db.String(30), nullable=False)
-    telefone = db.Column(db.String(30), nullable=False)
-    data_emissao = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
-    data_validade = db.Column(db.DateTime, nullable=False)
-    status = db.Column(db.String(30), nullable=False)
-    observacoes = db.Column(db.Text)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
-    # Adiciona restrição única para CNPJ por usuário
-    __table_args__ = (db.UniqueConstraint('cnpj', 'user_id', name='unique_cnpj_per_user'),)
-
-    def atualizar_status(self):
-        """Atualiza o status do certificado com base na data de validade"""
-        self.status = determinar_status(self.data_validade)
-
 # Initialize database
 with app.app_context():
     try:
