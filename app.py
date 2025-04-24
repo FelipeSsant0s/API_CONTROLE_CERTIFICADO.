@@ -13,6 +13,7 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from api import api  # Importando o Blueprint da API
 
 # Configuração de logging mais detalhada
 logging.basicConfig(
@@ -28,6 +29,9 @@ logger = logging.getLogger(__name__)
 # Create Flask application
 app = Flask(__name__)
 logger.info('Initializing Flask application...')
+
+# Registrar o Blueprint da API
+app.register_blueprint(api, url_prefix='/api')
 
 # Configure application
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
@@ -759,6 +763,11 @@ def nova_senha():
                 return redirect(url_for('login'))
     
     return render_template('nova_senha.html')
+
+@app.route('/xml_upload')
+@login_required
+def xml_upload():
+    return render_template('xml_upload.html')
 
 # Manipulador de erros global
 @app.errorhandler(Exception)

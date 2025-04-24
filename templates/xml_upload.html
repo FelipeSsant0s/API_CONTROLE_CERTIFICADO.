@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Envio de XML</h2>
+    
+    <div class="card">
+        <div class="card-body">
+            <form id="xmlUploadForm" enctype="multipart/form-data">
+                <div class="mb-3">
+                    <label for="xmlFile" class="form-label">Selecione o arquivo XML</label>
+                    <input class="form-control" type="file" id="xmlFile" accept=".xml" required>
+                </div>
+                <button type="submit" class="btn btn-primary">Enviar XML</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">Arquivos XML Processados</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="xmlFilesTable">
+                    <thead>
+                        <tr>
+                            <th>Nome do Arquivo</th>
+                            <th>Tamanho</th>
+                            <th>Data de Modificação</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Os arquivos serão carregados via JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('xmlUploadForm');
+    const fileInput = document.getElementById('xmlFile');
+    const tableBody = document.querySelector('#xmlFilesTable tbody');
+
+    // Carregar lista de arquivos
+    function loadFiles() {
+        fetch('/api/xml/files', {
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            }
+        })
+        .then(response => response.json())
+        .then(files => {
+            tableBody.innerHTML = '';
+            files.forEach(file => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${file.filename}</td>
+                    <td>${formatFileSize(file.size)}</td>
+                    <td>${new Date(file.modified).toLocaleString()}</td>
+                `;
+                tableBody.appendChild(row);
+            });
+        })
+        .catch(error => {
+            console.error('Erro ao carregar arquivos:', error);
+            alert('Erro ao carregar lista de arquivos');
+        });
+    }
+
+    // Formatar tamanho do arquivo
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Manipular envio do formulário
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const file = fileInput.files[0];
+        if (!file) {
+            alert('Por favor, selecione um arquivo XML');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        fetch('/api/xml/upload', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`
+            },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            alert(data.message);
+            loadFiles(); // Recarregar lista de arquivos
+        })
+        .catch(error => {
+            console.error('Erro ao enviar arquivo:', error);
+            alert('Erro ao enviar arquivo');
+        });
+    });
+
+    // Carregar lista inicial de arquivos
+    loadFiles();
+});
+</script>
+{% endblock %} 
