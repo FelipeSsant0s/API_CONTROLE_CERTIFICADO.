@@ -84,21 +84,20 @@
         }
         .upload-btn {
             background-color: #28a745;
-            border: none;
-            padding: 0.5rem 1.5rem;
-            border-radius: 0.25rem;
             color: white;
-            font-weight: 500;
-            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 4px;
+            text-decoration: none;
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 8px;
+            transition: all 0.3s ease;
         }
         .upload-btn:hover {
             background-color: #218838;
+            color: white;
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-            color: white;
         }
         .upload-btn i {
             font-size: 1.2rem;
@@ -145,27 +144,25 @@
                     </li>
                     {% endif %}
                 </ul>
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center gap-3">
                     <a href="{{ url_for('xml_upload') }}" class="upload-btn">
                         <i class="fas fa-file-upload"></i>
                         <span>Enviar XML</span>
                     </a>
-                    <div class="ms-3">
-                        {% if current_user.is_authenticated %}
-                            <div class="dropdown">
-                                <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
-                                    <i class="fas fa-user me-1"></i>{{ current_user.username }}
-                                </button>
-                                <ul class="dropdown-menu dropdown-menu-end">
-                                    <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
-                                </ul>
-                            </div>
-                        {% else %}
-                            <a href="{{ url_for('login') }}" class="btn btn-outline-light">
-                                <i class="fas fa-sign-in-alt me-1"></i>Entrar
-                            </a>
-                        {% endif %}
-                    </div>
+                    {% if current_user.is_authenticated %}
+                        <div class="dropdown">
+                            <button class="btn btn-outline-light dropdown-toggle" type="button" id="userDropdown" data-bs-toggle="dropdown">
+                                <i class="fas fa-user me-1"></i>{{ current_user.username }}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                            </ul>
+                        </div>
+                    {% else %}
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-light">
+                            <i class="fas fa-sign-in-alt me-1"></i>Entrar
+                        </a>
+                    {% endif %}
                 </div>
             </div>
         </div>
