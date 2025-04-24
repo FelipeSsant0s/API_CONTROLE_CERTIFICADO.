@@ -1,9 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_file, abort, session
-from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_login import LoginManager, login_user, login_required, logout_user, current_user
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime, timedelta
-from sqlalchemy import UniqueConstraint
 import os
 import io
 import openpyxl
@@ -13,9 +11,10 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from api import api  # Importando o Blueprint da API
+from api import api
+from models import db, User, Certificado
 
-# Configuração de logging mais detalhada
+# Configuração de logging
 logging.basicConfig(
     level=logging.DEBUG,
     format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s',
@@ -49,26 +48,11 @@ app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # Initialize extensions
-db = SQLAlchemy(app)
+db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, faça login para acessar esta página.'
 login_manager.login_message_category = 'info'
-
-# User model
-class User(UserMixin, db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    name = db.Column(db.String(120), nullable=False)
-    certificados = db.relationship('Certificado', backref='user', lazy=True)
-
-    def set_password(self, password):
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        return check_password_hash(self.password_hash, password)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -108,7 +92,7 @@ class Certificado(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
     # Adiciona restrição única para CNPJ por usuário
-    __table_args__ = (UniqueConstraint('cnpj', 'user_id', name='unique_cnpj_per_user'),)
+    __table_args__ = (db.UniqueConstraint('cnpj', 'user_id', name='unique_cnpj_per_user'),)
 
     def atualizar_status(self):
         """Atualiza o status do certificado com base na data de validade"""
@@ -118,8 +102,6 @@ class Certificado(db.Model):
 with app.app_context():
     try:
         logger.info('Starting database initialization...')
-        
-        # Create tables if they don't exist
         db.create_all()
         
         # Create default admin user if it doesn't exist
@@ -130,13 +112,11 @@ with app.app_context():
                 email='admin@certificados.com',
                 name='Administrador'
             )
-            # Senha fixa: Admin@123
             admin.set_password('Admin@123')
             db.session.add(admin)
             db.session.commit()
             logger.info('Default admin user created')
         else:
-            # Atualiza a senha do admin existente
             admin_user.set_password('Admin@123')
             db.session.commit()
             logger.info('Admin password updated')

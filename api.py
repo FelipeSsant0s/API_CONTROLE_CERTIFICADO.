@@ -1,7 +1,6 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
-from app import db
-from models import Certificado, User
+from models import db, Certificado, User
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps

@@ -1,0 +1,40 @@
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from datetime import datetime, timedelta
+
+db = SQLAlchemy()
+
+class User(UserMixin, db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(120), nullable=False)
+    password_hash = db.Column(db.String(128))
+    certificados = db.relationship('Certificado', backref='user', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+class Certificado(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    razao_social = db.Column(db.String(200), nullable=False)
+    nome_fantasia = db.Column(db.String(200), nullable=False)
+    cnpj = db.Column(db.String(18), nullable=False)
+    telefone = db.Column(db.String(20), nullable=False)
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    data_validade = db.Column(db.DateTime, nullable=False)
+    observacoes = db.Column(db.Text)
+    status = db.Column(db.String(50), default='Válido')
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+
+    def atualizar_status(self):
+        hoje = datetime.utcnow()
+        if self.data_validade < hoje:
+            self.status = 'Vencido'
+        elif self.data_validade - hoje <= timedelta(days=30):
+            self.status = 'Próximo ao Vencimento'
+        else:
+            self.status = 'Válido' 
