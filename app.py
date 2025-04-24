@@ -11,10 +11,8 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from models import db, User, Certificado, XMLUpload
+from models import db, User, Certificado
 from werkzeug.utils import secure_filename
-import xml.etree.ElementTree as ET
-from api import api_bp
 
 # Configuração de logging
 logging.basicConfig(
@@ -668,121 +666,6 @@ def nova_senha():
                 return redirect(url_for('login'))
     
     return render_template('nova_senha.html')
-
-@app.route('/xml_upload', methods=['GET', 'POST'])
-@login_required
-def xml_upload():
-    if request.method == 'POST':
-        try:
-            # Verifica se o arquivo foi enviado
-            if 'file' not in request.files:
-                flash('Nenhum arquivo enviado', 'danger')
-                return redirect(request.url)
-            
-            file = request.files['file']
-            
-            # Verifica se um arquivo foi selecionado
-            if file.filename == '':
-                flash('Nenhum arquivo selecionado', 'danger')
-                return redirect(request.url)
-            
-            # Verifica se é um arquivo XML
-            if not file.filename.endswith('.xml'):
-                flash('Tipo de arquivo não permitido. Apenas XML é aceito.', 'danger')
-                return redirect(request.url)
-            
-            # Salva o arquivo
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(UPLOAD_FOLDER, filename)
-            file.save(filepath)
-            
-            # Cria registro do upload
-            xml_upload = XMLUpload(
-                filename=filename,
-                file_path=filepath,
-                user_id=current_user.id,
-                status='Processando'
-            )
-            db.session.add(xml_upload)
-            db.session.commit()
-            
-            # Processa o XML
-            try:
-                tree = ET.parse(filepath)
-                root = tree.getroot()
-                
-                # Conta total de certificados no XML
-                total_certificados = len(root.findall('certificado'))
-                xml_upload.total_certificados = total_certificados
-                db.session.commit()
-                
-                # Processa cada certificado
-                for certificado_xml in root.findall('certificado'):
-                    try:
-                        razao_social = certificado_xml.find('razao_social').text
-                        nome_fantasia = certificado_xml.find('nome_fantasia').text
-                        cnpj = certificado_xml.find('cnpj').text
-                        telefone = certificado_xml.find('telefone').text
-                        data_validade = datetime.fromisoformat(certificado_xml.find('data_validade').text)
-                        
-                        # Verifica se já existe certificado com o mesmo CNPJ
-                        certificado_existente = Certificado.query.filter_by(
-                            cnpj=cnpj,
-                            user_id=current_user.id
-                        ).first()
-                        
-                        if certificado_existente:
-                            # Atualiza o certificado existente
-                            certificado_existente.razao_social = razao_social
-                            certificado_existente.nome_fantasia = nome_fantasia
-                            certificado_existente.telefone = telefone
-                            certificado_existente.data_validade = data_validade
-                            certificado_existente.observacoes = f"Atualizado via XML em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
-                            certificado_existente.xml_upload_id = xml_upload.id
-                        else:
-                            # Cria novo certificado
-                            novo_certificado = Certificado(
-                                razao_social=razao_social,
-                                nome_fantasia=nome_fantasia,
-                                cnpj=cnpj,
-                                telefone=telefone,
-                                data_validade=data_validade,
-                                observacoes=f"Importado via XML em {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}",
-                                user_id=current_user.id,
-                                xml_upload_id=xml_upload.id
-                            )
-                            db.session.add(novo_certificado)
-                        
-                        xml_upload.certificados_processados += 1
-                        db.session.commit()
-                        
-                    except Exception as e:
-                        logger.error(f'Erro ao processar certificado do XML: {str(e)}')
-                        continue
-                
-                xml_upload.status = 'Concluído'
-                db.session.commit()
-                
-                flash('Arquivo XML processado com sucesso!', 'success')
-                return redirect(url_for('listar_certificados'))
-                
-            except ET.ParseError as e:
-                xml_upload.status = 'Erro'
-                xml_upload.error_message = f'Erro ao processar XML: {str(e)}'
-                db.session.commit()
-                flash(f'Erro ao processar XML: {str(e)}', 'danger')
-                return redirect(request.url)
-            
-        except Exception as e:
-            logger.error(f'Erro no upload de XML: {str(e)}')
-            if 'xml_upload' in locals():
-                xml_upload.status = 'Erro'
-                xml_upload.error_message = f'Erro interno do servidor: {str(e)}'
-                db.session.commit()
-            flash('Erro interno do servidor', 'danger')
-            return redirect(request.url)
-    
-    return render_template('xml_upload.html')
 
 # Manipulador de erros global
 @app.errorhandler(Exception)
