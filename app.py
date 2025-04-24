@@ -13,16 +13,10 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from models import db, User, Certificado
 from werkzeug.utils import secure_filename
+from api import api_bp
 
-# Configuração de logging
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s %(levelname)s %(name)s %(threadName)s : %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler('app.log')
-    ]
-)
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Create Flask application
@@ -30,7 +24,7 @@ app = Flask(__name__)
 logger.info('Initializing Flask application...')
 
 # Configure application
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-secret-key')
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'dev-secret-key')
 
 # Database configuration
 database_url = os.environ.get('DATABASE_URL')

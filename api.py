@@ -1,11 +1,11 @@
 from flask import Flask, Blueprint, jsonify, request
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_required, current_user
 from models import db, Certificado, User
 from datetime import datetime, timedelta
 import jwt
 from functools import wraps
 import logging
+import os
 
 # Create Flask application for API
 api_app = Flask(__name__)
@@ -24,10 +24,8 @@ else:
 api_app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 api_app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Initialize SQLAlchemy
-db = SQLAlchemy(api_app)
-
-# Initialize LoginManager
+# Initialize extensions
+db.init_app(api_app)
 login_manager = LoginManager(api_app)
 login_manager.login_view = 'api.login'
 
