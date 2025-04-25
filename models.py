@@ -2,6 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from datetime import datetime, timedelta
 from werkzeug.security import generate_password_hash, check_password_hash
+import secrets
 
 db = SQLAlchemy()
 
@@ -14,6 +15,7 @@ class User(UserMixin, db.Model):
     name = db.Column(db.String(120), nullable=False)
     password_hash = db.Column(db.String(256))
     certificados = db.relationship('Certificado', backref='user', lazy=True)
+    empresas = db.relationship('Empresa', backref='user', lazy=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
@@ -21,11 +23,32 @@ class User(UserMixin, db.Model):
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
 
+class Empresa(db.Model):
+    __tablename__ = 'empresas'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    razao_social = db.Column(db.String(200), nullable=False)
+    nome_fantasia = db.Column(db.String(200))
+    cnpj = db.Column(db.String(18), unique=True, nullable=False)
+    endereco = db.Column(db.String(200))
+    telefone = db.Column(db.String(20))
+    email = db.Column(db.String(120))
+    url_integracao = db.Column(db.String(100), unique=True, nullable=False)
+    ativo = db.Column(db.Boolean, default=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    certificados = db.relationship('Certificado', backref='empresa', lazy=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    @staticmethod
+    def gerar_url_integracao():
+        return secrets.token_urlsafe(32)
+
 class Certificado(db.Model):
     __tablename__ = 'certificados'
     
     id = db.Column(db.Integer, primary_key=True)
-    empresa_id = db.Column(db.String(50), nullable=False)
+    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id'), nullable=False)
     razao_social = db.Column(db.String(200), nullable=False)
     nome_fantasia = db.Column(db.String(200))
     cnpj = db.Column(db.String(18), nullable=False)

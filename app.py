@@ -11,7 +11,7 @@ import secrets
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from models import db, User, Certificado
+from models import db, User, Certificado, Empresa
 from werkzeug.utils import secure_filename
 from api import api_bp
 from werkzeug.exceptions import HTTPException
@@ -728,6 +728,118 @@ def upload_xml():
         db.session.rollback()
         flash(f'Erro ao processar XML: {str(e)}', 'error')
         return redirect(url_for('xml_upload'))
+
+@app.route('/empresas')
+@login_required
+def empresas():
+    empresas = Empresa.query.filter_by(user_id=current_user.id).all()
+    return render_template('empresas.html', empresas=empresas)
+
+@app.route('/empresas/nova', methods=['GET', 'POST'])
+@login_required
+def nova_empresa():
+    if request.method == 'POST':
+        try:
+            empresa = Empresa(
+                razao_social=request.form['razao_social'],
+                nome_fantasia=request.form.get('nome_fantasia'),
+                cnpj=request.form['cnpj'],
+                endereco=request.form.get('endereco'),
+                telefone=request.form.get('telefone'),
+                email=request.form.get('email'),
+                ativo=request.form.get('ativo') == 'on',
+                url_integracao=Empresa.gerar_url_integracao(),
+                user_id=current_user.id
+            )
+            db.session.add(empresa)
+            db.session.commit()
+            flash('Empresa cadastrada com sucesso!', 'success')
+            return redirect(url_for('empresas'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao cadastrar empresa: {str(e)}', 'error')
+            return redirect(url_for('nova_empresa'))
+    return render_template('nova_empresa.html')
+
+@app.route('/empresas/<int:id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_empresa(id):
+    empresa = Empresa.query.get_or_404(id)
+    if empresa.user_id != current_user.id:
+        abort(403)
+    
+    if request.method == 'POST':
+        try:
+            empresa.razao_social = request.form['razao_social']
+            empresa.nome_fantasia = request.form.get('nome_fantasia')
+            empresa.cnpj = request.form['cnpj']
+            empresa.endereco = request.form.get('endereco')
+            empresa.telefone = request.form.get('telefone')
+            empresa.email = request.form.get('email')
+            empresa.ativo = request.form.get('ativo') == 'on'
+            
+            db.session.commit()
+            flash('Empresa atualizada com sucesso!', 'success')
+            return redirect(url_for('empresas'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Erro ao atualizar empresa: {str(e)}', 'error')
+            return redirect(url_for('editar_empresa', id=id))
+    
+    return render_template('editar_empresa.html', empresa=empresa)
+
+@app.route('/empresas/<int:id>/deletar', methods=['POST'])
+@login_required
+def deletar_empresa(id):
+    empresa = Empresa.query.get_or_404(id)
+    if empresa.user_id != current_user.id:
+        abort(403)
+    
+    try:
+        db.session.delete(empresa)
+        db.session.commit()
+        flash('Empresa excluída com sucesso!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Erro ao excluir empresa: {str(e)}', 'error')
+    
+    return redirect(url_for('empresas'))
+
+# Endpoint para integração com o monitor
+@app.route('/api/integracao/<string:url_integracao>', methods=['POST'])
+def receber_xml(url_integracao):
+    try:
+        empresa = Empresa.query.filter_by(url_integracao=url_integracao, ativo=True).first_or_404()
+        
+        if 'xml_file' not in request.files:
+            return jsonify({'error': 'Nenhum arquivo enviado'}), 400
+            
+        xml_file = request.files['xml_file']
+        if not xml_file.filename.endswith('.xml'):
+            return jsonify({'error': 'Apenas arquivos XML são permitidos'}), 400
+            
+        # Processar o XML
+        xml_content = xml_file.read()
+        # Aqui você pode adicionar a lógica para processar o XML
+        # e extrair as informações do certificado
+        
+        # Criar um novo certificado
+        novo_certificado = Certificado(
+            empresa_id=empresa.id,
+            razao_social=empresa.razao_social,
+            nome_fantasia=empresa.nome_fantasia,
+            cnpj=empresa.cnpj,
+            telefone=empresa.telefone,
+            # Adicione outros campos conforme necessário
+        )
+        db.session.add(novo_certificado)
+        db.session.commit()
+        
+        return jsonify({'message': 'XML processado com sucesso'}), 200
+        
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 # Manipulador de erros global
 @app.errorhandler(Exception)

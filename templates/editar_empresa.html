@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Editar Empresa</h2>
+    <div class="card">
+        <div class="card-body">
+            <form method="POST" action="{{ url_for('editar_empresa', id=empresa.id) }}">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="razao_social">Razão Social</label>
+                            <input type="text" class="form-control" id="razao_social" name="razao_social" value="{{ empresa.razao_social }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="nome_fantasia">Nome Fantasia</label>
+                            <input type="text" class="form-control" id="nome_fantasia" name="nome_fantasia" value="{{ empresa.nome_fantasia }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="cnpj">CNPJ</label>
+                            <input type="text" class="form-control" id="cnpj" name="cnpj" value="{{ empresa.cnpj }}" required>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="form-group mb-3">
+                            <label for="telefone">Telefone</label>
+                            <input type="text" class="form-control" id="telefone" name="telefone" value="{{ empresa.telefone }}">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="endereco">Endereço</label>
+                    <input type="text" class="form-control" id="endereco" name="endereco" value="{{ empresa.endereco }}">
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="email">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ empresa.email }}">
+                </div>
+
+                <div class="form-group mb-3">
+                    <div class="form-check">
+                        <input type="checkbox" class="form-check-input" id="ativo" name="ativo" {% if empresa.ativo %}checked{% endif %}>
+                        <label class="form-check-label" for="ativo">Empresa Ativa</label>
+                    </div>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label>URL de Integração</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" value="{{ empresa.url_integracao }}" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="copiarUrl('{{ empresa.url_integracao }}')">
+                            <i class="fas fa-copy"></i> Copiar
+                        </button>
+                    </div>
+                    <small class="form-text text-muted">
+                        Use esta URL para configurar o monitor de XML da empresa.
+                    </small>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('empresas') }}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Máscara para CNPJ
+document.getElementById('cnpj').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 14) {
+        value = value.replace(/^(\d{2})(\d)/, '$1.$2');
+        value = value.replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3');
+        value = value.replace(/\.(\d{3})(\d)/, '.$1/$2');
+        value = value.replace(/(\d{4})(\d)/, '$1-$2');
+        e.target.value = value;
+    }
+});
+
+// Máscara para telefone
+document.getElementById('telefone').addEventListener('input', function(e) {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length <= 11) {
+        value = value.replace(/^(\d{2})(\d)/, '($1) $2');
+        value = value.replace(/(\d{5})(\d)/, '$1-$2');
+        e.target.value = value;
+    }
+});
+
+function copiarUrl(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('URL copiada para a área de transferência!');
+    });
+}
+</script>
+{% endblock %} 

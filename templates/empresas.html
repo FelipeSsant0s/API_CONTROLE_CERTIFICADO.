@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gerenciamento de Empresas</h2>
+        <a href="{{ url_for('nova_empresa') }}" class="btn btn-primary">
+            <i class="fas fa-plus"></i> Nova Empresa
+        </a>
+    </div>
+
+    {% if empresas %}
+    <div class="table-responsive">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Razão Social</th>
+                    <th>Nome Fantasia</th>
+                    <th>CNPJ</th>
+                    <th>URL de Integração</th>
+                    <th>Status</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for empresa in empresas %}
+                <tr>
+                    <td>{{ empresa.razao_social }}</td>
+                    <td>{{ empresa.nome_fantasia }}</td>
+                    <td>{{ empresa.cnpj }}</td>
+                    <td>
+                        <code>{{ empresa.url_integracao }}</code>
+                        <button class="btn btn-sm btn-info" onclick="copiarUrl('{{ empresa.url_integracao }}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </td>
+                    <td>
+                        {% if empresa.ativo %}
+                        <span class="badge bg-success">Ativo</span>
+                        {% else %}
+                        <span class="badge bg-danger">Inativo</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{{ url_for('editar_empresa', id=empresa.id) }}" class="btn btn-sm btn-warning">
+                            <i class="fas fa-edit"></i>
+                        </a>
+                        <button class="btn btn-sm btn-danger" onclick="confirmarExclusao({{ empresa.id }})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        Nenhuma empresa cadastrada. Clique em "Nova Empresa" para começar.
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="modalExclusao" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirmar Exclusão</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                Tem certeza que deseja excluir esta empresa?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form id="formExclusao" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copiarUrl(url) {
+    navigator.clipboard.writeText(url).then(() => {
+        alert('URL copiada para a área de transferência!');
+    });
+}
+
+function confirmarExclusao(id) {
+    const modal = new bootstrap.Modal(document.getElementById('modalExclusao'));
+    const form = document.getElementById('formExclusao');
+    form.action = `/empresas/${id}/deletar`;
+    modal.show();
+}
+</script>
+{% endblock %} 
