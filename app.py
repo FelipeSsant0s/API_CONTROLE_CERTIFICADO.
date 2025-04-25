@@ -17,6 +17,7 @@ from api import api_bp
 from werkzeug.exceptions import HTTPException
 import traceback
 import xml.etree.ElementTree as ET
+import sqlalchemy
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -34,12 +35,21 @@ database_url = os.environ.get('DATABASE_URL')
 if database_url:
     # Render.com usa 'postgres://', mas SQLAlchemy requer 'postgresql://'
     database_url = database_url.replace('postgres://', 'postgresql://')
+    # Adicionar configurações de pool e reconexão
+    database_url += '?sslmode=require&pool_size=5&max_overflow=10&pool_timeout=30&pool_recycle=1800'
 else:
     # Fallback para SQLite em desenvolvimento local
     database_url = 'sqlite:///certificados.db'
 
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,  # Verifica a conexão antes de usar
+    'pool_recycle': 1800,   # Recicla conexões a cada 30 minutos
+    'pool_timeout': 30,     # Timeout de 30 segundos
+    'pool_size': 5,         # Tamanho do pool
+    'max_overflow': 10      # Máximo de conexões extras
+}
 
 # Initialize extensions
 db.init_app(app)
@@ -841,21 +851,52 @@ def receber_xml(url_integracao):
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
 
-# Manipulador de erros global
+# Middleware para gerenciar a sessão do banco de dados
+@app.teardown_appcontext
+def shutdown_session(exception=None):
+    db.session.remove()
+
+@app.before_request
+def before_request():
+    try:
+        # Verifica se a conexão está ativa
+        db.session.execute('SELECT 1')
+    except Exception as e:
+        logger.error(f"Erro na conexão com o banco: {str(e)}")
+        db.session.rollback()
+        db.session.close()
+        db.session.remove()
+        db.engine.dispose()
+
+@app.after_request
+def after_request(response):
+    try:
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Erro ao commitar transação: {str(e)}")
+        db.session.rollback()
+    finally:
+        db.session.close()
+    return response
+
+# Modificar o manipulador de erros para lidar com erros de banco de dados
 @app.errorhandler(Exception)
 def handle_exception(e):
     logger.error(f"Erro não tratado: {str(e)}", exc_info=True)
+    
+    # Se for um erro de banco de dados, tenta reconectar
+    if isinstance(e, (sqlalchemy.exc.OperationalError, sqlalchemy.exc.PendingRollbackError)):
+        try:
+            db.session.rollback()
+            db.session.close()
+            db.session.remove()
+            db.engine.dispose()
+            logger.info("Conexão com o banco de dados reiniciada após erro")
+        except Exception as db_error:
+            logger.error(f"Erro ao reiniciar conexão: {str(db_error)}")
+    
     if isinstance(e, HTTPException):
         return render_template(f'{e.code}.html'), e.code
-    
-    # Log detalhado do erro
-    logger.error("Detalhes do erro:")
-    logger.error(f"Tipo do erro: {type(e)}")
-    logger.error(f"Stack trace: {e.__traceback__}")
-    
-    # Verifica se é um erro de banco de dados
-    if hasattr(e, 'orig') and e.orig:
-        logger.error(f"Erro original: {e.orig}")
     
     return render_template('500.html', error=str(e)), 500
 
