@@ -461,7 +461,11 @@ def dashboard():
         
         # Atualizar status de todos os certificados
         for certificado in certificados:
-            certificado.atualizar_status()
+            try:
+                certificado.atualizar_status()
+            except Exception as e:
+                logger.error(f'Error updating status for certificate {certificado.id}: {str(e)}')
+                continue
         
         # Dados para o gráfico de pizza (Status dos Certificados)
         status_counts = {
@@ -470,7 +474,11 @@ def dashboard():
             'Expirado': 0
         }
         for certificado in certificados:
-            status_counts[certificado.status] += 1
+            try:
+                status_counts[certificado.status] += 1
+            except Exception as e:
+                logger.error(f'Error counting status for certificate {certificado.id}: {str(e)}')
+                continue
         
         # Dados para o gráfico de barras (Certificados por Mês)
         from collections import defaultdict
@@ -478,12 +486,20 @@ def dashboard():
         
         certificados_por_mes = defaultdict(int)
         for certificado in certificados:
-            mes = certificado.data_validade.strftime('%B')  # Nome do mês
-            certificados_por_mes[mes] += 1
+            try:
+                mes = certificado.data_validade.strftime('%B')  # Nome do mês
+                certificados_por_mes[mes] += 1
+            except Exception as e:
+                logger.error(f'Error processing month data for certificate {certificado.id}: {str(e)}')
+                continue
         
         # Ordenar os meses cronologicamente
-        meses_ordenados = sorted(certificados_por_mes.items(), 
-                               key=lambda x: list(calendar.month_name).index(x[0]))
+        try:
+            meses_ordenados = sorted(certificados_por_mes.items(), 
+                                   key=lambda x: list(calendar.month_name).index(x[0]))
+        except Exception as e:
+            logger.error(f'Error sorting months: {str(e)}')
+            meses_ordenados = []
         
         # Preparar dados para os gráficos
         chart_data = {
@@ -501,10 +517,12 @@ def dashboard():
             'validos': sum(1 for c in certificados if c.status == 'Válido')
         }
         
+        logger.info('Dashboard data prepared successfully')
         return render_template('dashboard.html', chart_data=chart_data, stats=stats)
+        
     except Exception as e:
-        logger.error(f'Error in dashboard route: {str(e)}')
-        return render_template('500.html'), 500
+        logger.error(f'Error in dashboard route: {str(e)}', exc_info=True)
+        return render_template('500.html', error=str(e)), 500
 
 # Função para enviar email
 def enviar_email(destinatario, assunto, corpo):
@@ -695,6 +713,7 @@ def internal_error(error):
     db.session.rollback()
     logger.error("Erro interno do servidor", exc_info=True)
     logger.error(f"Detalhes do erro: {str(error)}")
+    logger.error(f"Stack trace: {error.__traceback__}")
     return render_template('500.html', error=str(error)), 500
 
 # Middleware para logging de requisições
@@ -705,6 +724,7 @@ def log_request_info():
     logger.debug('URL: %s', request.url)
     logger.debug('Method: %s', request.method)
     logger.debug('Session: %s', session)
+    logger.debug('User: %s', current_user if current_user.is_authenticated else 'Not authenticated')
 
 @app.after_request
 def log_response_info(response):
