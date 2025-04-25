@@ -20,16 +20,20 @@ class User(UserMixin, db.Model):
         return check_password_hash(self.password_hash, password)
 
 class Certificado(db.Model):
+    __tablename__ = 'certificados'
+    
     id = db.Column(db.Integer, primary_key=True)
+    empresa_id = db.Column(db.String(50), nullable=False)
     razao_social = db.Column(db.String(200), nullable=False)
-    nome_fantasia = db.Column(db.String(200), nullable=False)
+    nome_fantasia = db.Column(db.String(200))
     cnpj = db.Column(db.String(18), nullable=False)
-    telefone = db.Column(db.String(20), nullable=False)
-    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
+    telefone = db.Column(db.String(20))
     data_validade = db.Column(db.DateTime, nullable=False)
-    observacoes = db.Column(db.Text)
     status = db.Column(db.String(50), default='Válido')
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    observacoes = db.Column(db.Text)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     def atualizar_status(self):
         hoje = datetime.utcnow()

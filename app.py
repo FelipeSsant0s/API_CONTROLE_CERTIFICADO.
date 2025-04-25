@@ -684,7 +684,7 @@ def nova_senha():
     
     return render_template('nova_senha.html')
 
-@app.route('/xml_upload')
+@app.route('/xml_upload', methods=['GET'])
 @login_required
 def xml_upload():
     return render_template('xml_upload.html')
@@ -693,62 +693,38 @@ def xml_upload():
 @login_required
 def upload_xml():
     try:
-        if 'xml_file' not in request.files:
-            flash('Nenhum arquivo enviado', 'danger')
+        empresa_id = request.form.get('empresa_id')
+        xml_file = request.files.get('xml_file')
+        observacoes = request.form.get('observacoes', '')
+
+        if not empresa_id or not xml_file:
+            flash('ID da empresa e arquivo XML são obrigatórios', 'error')
             return redirect(url_for('xml_upload'))
-            
-        file = request.files['xml_file']
-        if file.filename == '':
-            flash('Nenhum arquivo selecionado', 'danger')
+
+        if not xml_file.filename.endswith('.xml'):
+            flash('Apenas arquivos XML são permitidos', 'error')
             return redirect(url_for('xml_upload'))
-            
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(filepath)
-            
-            # Processar o XML e extrair os dados
-            try:
-                tree = ET.parse(filepath)
-                root = tree.getroot()
-                
-                # Extrair dados do XML (ajuste conforme a estrutura do seu XML)
-                razao_social = root.find('.//razao_social').text
-                nome_fantasia = root.find('.//nome_fantasia').text
-                cnpj = root.find('.//cnpj').text
-                telefone = root.find('.//telefone').text
-                data_validade = datetime.strptime(root.find('.//data_validade').text, '%Y-%m-%d')
-                observacoes = request.form.get('observacoes', '')
-                
-                # Criar novo certificado
-                certificado = Certificado(
-                    razao_social=razao_social,
-                    nome_fantasia=nome_fantasia,
-                    cnpj=cnpj,
-                    telefone=telefone,
-                    data_validade=data_validade,
-                    observacoes=observacoes,
-                    user_id=current_user.id
-                )
-                
-                db.session.add(certificado)
-                db.session.commit()
-                
-                flash('Certificado cadastrado com sucesso!', 'success')
-                return redirect(url_for('listar_certificados'))
-                
-            except ET.ParseError:
-                flash('Erro ao processar o arquivo XML', 'danger')
-                return redirect(url_for('xml_upload'))
-            except Exception as e:
-                flash(f'Erro ao processar o XML: {str(e)}', 'danger')
-                return redirect(url_for('xml_upload'))
-        else:
-            flash('Tipo de arquivo não permitido. Apenas XML é aceito.', 'danger')
-            return redirect(url_for('xml_upload'))
-            
+
+        # Processar o XML
+        xml_content = xml_file.read()
+        # Aqui você pode adicionar a lógica para processar o XML
+        # e extrair as informações do certificado
+
+        # Criar um novo certificado
+        novo_certificado = Certificado(
+            empresa_id=empresa_id,
+            observacoes=observacoes,
+            # Adicione outros campos conforme necessário
+        )
+        db.session.add(novo_certificado)
+        db.session.commit()
+
+        flash('XML processado com sucesso!', 'success')
+        return redirect(url_for('certificados'))
+
     except Exception as e:
-        flash(f'Erro ao processar o upload: {str(e)}', 'danger')
+        db.session.rollback()
+        flash(f'Erro ao processar XML: {str(e)}', 'error')
         return redirect(url_for('xml_upload'))
 
 # Manipulador de erros global

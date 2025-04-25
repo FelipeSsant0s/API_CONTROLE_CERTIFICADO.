@@ -6,12 +6,24 @@ import jwt
 from functools import wraps
 import logging
 import os
+from werkzeug.utils import secure_filename
+import xml.etree.ElementTree as ET
 
 # Create API Blueprint
 api_bp = Blueprint('api', __name__)
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+# Configurar logging
+logging.basicConfig(level=logging.INFO)
+
+# Configuração para upload de arquivos
+UPLOAD_FOLDER = 'uploads/xml'
+ALLOWED_EXTENSIONS = {'xml'}
+
+# Garantir que o diretório de upload existe
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 def token_required(f):
     @wraps(f)
@@ -200,4 +212,94 @@ def get_stats(current_user):
         'validos': sum(1 for c in certificados if c.status == 'Válido')
     }
     
-    return jsonify(stats) 
+    return jsonify(stats)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+@api_bp.route('/upload_xml', methods=['POST'])
+def api_upload_xml():
+    try:
+        # Verificar se o arquivo foi enviado
+        if 'xml_file' not in request.files:
+            logger.error("Nenhum arquivo enviado")
+            return jsonify({
+                'status': 'error',
+                'message': 'Nenhum arquivo enviado'
+            }), 400
+
+        file = request.files['xml_file']
+        if file.filename == '':
+            logger.error("Nome do arquivo vazio")
+            return jsonify({
+                'status': 'error',
+                'message': 'Nome do arquivo vazio'
+            }), 400
+
+        # Verificar se é um arquivo XML
+        if not allowed_file(file.filename):
+            logger.error(f"Tipo de arquivo não permitido: {file.filename}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Tipo de arquivo não permitido. Apenas XML é aceito.'
+            }), 400
+
+        # Salvar o arquivo
+        filename = secure_filename(file.filename)
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+
+        # Processar o XML
+        try:
+            tree = ET.parse(filepath)
+            root = tree.getroot()
+
+            # Extrair dados do XML
+            empresa_id = request.form.get('empresa_id', '')
+            razao_social = root.find('.//razao_social').text
+            nome_fantasia = root.find('.//nome_fantasia').text
+            cnpj = root.find('.//cnpj').text
+            telefone = root.find('.//telefone').text
+            data_validade = datetime.strptime(root.find('.//data_validade').text, '%Y-%m-%d')
+            observacoes = request.form.get('observacoes', '')
+
+            # Criar novo certificado
+            certificado = Certificado(
+                empresa_id=empresa_id,
+                razao_social=razao_social,
+                nome_fantasia=nome_fantasia,
+                cnpj=cnpj,
+                telefone=telefone,
+                data_validade=data_validade,
+                observacoes=observacoes
+            )
+
+            db.session.add(certificado)
+            db.session.commit()
+
+            logger.info(f"Certificado criado com sucesso para a empresa {empresa_id}")
+            return jsonify({
+                'status': 'success',
+                'message': 'Certificado processado com sucesso',
+                'certificado_id': certificado.id
+            }), 201
+
+        except ET.ParseError as e:
+            logger.error(f"Erro ao processar XML: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': 'Erro ao processar o arquivo XML'
+            }), 400
+        except Exception as e:
+            logger.error(f"Erro ao processar certificado: {str(e)}")
+            return jsonify({
+                'status': 'error',
+                'message': f'Erro ao processar o certificado: {str(e)}'
+            }), 500
+
+    except Exception as e:
+        logger.error(f"Erro no endpoint de upload: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': f'Erro ao processar o upload: {str(e)}'
+        }), 500 
