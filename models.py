@@ -34,8 +34,15 @@ class Certificado(db.Model):
     def atualizar_status(self):
         hoje = datetime.utcnow()
         if self.data_validade < hoje:
-            self.status = 'Vencido'
+            self.status = 'Expirado'
         elif self.data_validade - hoje <= timedelta(days=30):
             self.status = 'Próximo ao Vencimento'
         else:
-            self.status = 'Válido' 
+            self.status = 'Válido'
+
+    @classmethod
+    def atualizar_status_todos(cls):
+        certificados = cls.query.all()
+        for certificado in certificados:
+            certificado.atualizar_status()
+        db.session.commit() 

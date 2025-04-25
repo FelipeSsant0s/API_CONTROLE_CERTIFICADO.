@@ -1,162 +1,80 @@
 {% extends "base.html" %}
 
 {% block content %}
-<!-- Page Header -->
-<div class="page-header py-3">
-    <div class="container">
-        <div class="row align-items-center">
-            <div class="col-md-6">
-                <h1 class="h3 fw-bold mb-0">Dashboard Analítico</h1>
-                <p class="text-muted small mb-0">Visualização geral dos certificados</p>
-            </div>
-            <div class="col-md-6 text-md-end mt-2 mt-md-0">
-                <a href="{{ url_for('listar_certificados') }}" class="btn btn-primary btn-sm">
-                    <i class="fas fa-list me-2"></i>Ver Lista Completa
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="container mt-4">
-    <!-- Stats Cards -->
-    <div class="row g-3 mb-4">
+    <h2>Dashboard</h2>
+    
+    <!-- Estatísticas -->
+    <div class="row mb-4">
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card bg-primary text-white">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-certificate text-primary fa-2x"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1">Total de Certificados</h6>
-                            <h3 class="mb-0">{{ stats.total_certificados }}</h3>
-                            <small class="text-muted">Atualizado em {{ stats.ultima_atualizacao }}</small>
-                        </div>
-                    </div>
+                    <h5 class="card-title">Total de Certificados</h5>
+                    <h2 class="card-text">{{ stats.total }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card bg-success text-white">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-check-circle text-success fa-2x"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1">Certificados Válidos</h6>
-                            <h3 class="mb-0">{{ stats.validos }}</h3>
-                            <small class="text-muted">{{ (stats.validos / stats.total_certificados * 100) | round(1) }}% do total</small>
-                        </div>
-                    </div>
+                    <h5 class="card-title">Válidos</h5>
+                    <h2 class="card-text">{{ stats.validos }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card bg-warning text-white">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-exclamation-circle text-warning fa-2x"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1">Próximos ao Vencimento</h6>
-                            <h3 class="mb-0">{{ stats.proximos_vencer }}</h3>
-                            <small class="text-muted">{{ (stats.proximos_vencer / stats.total_certificados * 100) | round(1) }}% do total</small>
-                        </div>
-                    </div>
+                    <h5 class="card-title">Próximos ao Vencimento</h5>
+                    <h2 class="card-text">{{ stats.proximos }}</h2>
                 </div>
             </div>
         </div>
         <div class="col-md-3">
-            <div class="card border-0 shadow-sm h-100">
+            <div class="card bg-danger text-white">
                 <div class="card-body">
-                    <div class="d-flex align-items-center">
-                        <div class="flex-shrink-0">
-                            <i class="fas fa-times-circle text-danger fa-2x"></i>
-                        </div>
-                        <div class="flex-grow-1 ms-3">
-                            <h6 class="mb-1">Certificados Expirados</h6>
-                            <h3 class="mb-0">{{ stats.expirados }}</h3>
-                            <small class="text-muted">{{ (stats.expirados / stats.total_certificados * 100) | round(1) }}% do total</small>
-                        </div>
-                    </div>
+                    <h5 class="card-title">Expirados</h5>
+                    <h2 class="card-text">{{ stats.expirados }}</h2>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Charts -->
-    <div class="row g-4 mb-4">
-        <!-- Status Chart -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
+    <!-- Gráfico de Certificados por Mês -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title d-flex justify-content-between align-items-center">
-                        <span>Status dos Certificados</span>
-                        <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-secondary active" data-chart="pie">Pizza</button>
-                            <button type="button" class="btn btn-outline-secondary" data-chart="doughnut">Rosca</button>
-                        </div>
-                    </h5>
-                    <div style="height: 300px; position: relative;">
-                        <canvas id="statusChart"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Monthly Chart -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title d-flex justify-content-between align-items-center">
-                        <span>Certificados por Mês</span>
-                        <div class="btn-group btn-group-sm">
-                            <button type="button" class="btn btn-outline-secondary active" data-chart="bar">Barras</button>
-                            <button type="button" class="btn btn-outline-secondary" data-chart="line">Linhas</button>
-                        </div>
-                    </h5>
-                    <div style="height: 300px; position: relative;">
-                        <canvas id="monthlyChart"></canvas>
-                    </div>
+                    <h5 class="card-title">Certificados por Mês</h5>
+                    <canvas id="certificadosChart"></canvas>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Additional Information -->
-    <div class="row g-4">
-        <!-- Próximos Vencimentos -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
+    <!-- Próximos Vencimentos -->
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
                 <div class="card-body">
-                    <h5 class="card-title d-flex justify-content-between align-items-center">
-                        <span>Próximos Vencimentos</span>
-                        <span class="badge bg-warning">{{ proximos_vencimentos|length }} certificados</span>
-                    </h5>
+                    <h5 class="card-title">Próximos Vencimentos</h5>
                     <div class="table-responsive">
-                        <table class="table table-hover">
+                        <table class="table">
                             <thead>
                                 <tr>
-                                    <th>Empresa</th>
+                                    <th>Razão Social</th>
                                     <th>CNPJ</th>
-                                    <th>Vencimento</th>
+                                    <th>Data de Validade</th>
                                     <th>Dias Restantes</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for cert in proximos_vencimentos %}
+                                {% for cert in vencimentos %}
                                 <tr>
                                     <td>{{ cert.razao_social }}</td>
                                     <td>{{ cert.cnpj }}</td>
                                     <td>{{ cert.data_validade.strftime('%d/%m/%Y') }}</td>
-                                    <td>
-                                        <span class="badge bg-{{ 'warning' if cert.dias_restantes > 30 else 'danger' }}">
-                                            {{ cert.dias_restantes }} dias
-                                        </span>
-                                    </td>
+                                    <td>{{ (cert.data_validade - now).days }}</td>
                                 </tr>
                                 {% endfor %}
                             </tbody>
@@ -165,186 +83,34 @@
                 </div>
             </div>
         </div>
-
-        <!-- Últimas Atividades -->
-        <div class="col-md-6">
-            <div class="card border-0 shadow-sm h-100">
-                <div class="card-body">
-                    <h5 class="card-title">Últimas Atividades</h5>
-                    <div class="timeline">
-                        {% for atividade in ultimas_atividades %}
-                        <div class="timeline-item">
-                            <div class="timeline-marker bg-{{ atividade.tipo }}"></div>
-                            <div class="timeline-content">
-                                <h6 class="mb-1">{{ atividade.titulo }}</h6>
-                                <p class="mb-1 small">{{ atividade.descricao }}</p>
-                                <small class="text-muted">{{ atividade.data.strftime('%d/%m/%Y %H:%M') }}</small>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 </div>
+{% endblock %}
 
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Status Chart
-    const statusCtx = document.getElementById('statusChart').getContext('2d');
-    const statusChart = new Chart(statusCtx, {
-        type: 'pie',
+    // Gráfico de Certificados por Mês
+    const ctx = document.getElementById('certificadosChart').getContext('2d');
+    new Chart(ctx, {
+        type: 'line',
         data: {
-            labels: {{ chart_data.status_labels | tojson }},
-            datasets: [{
-                data: {{ chart_data.status_data | tojson }},
-                backgroundColor: [
-                    '#28a745',  // Verde para Válido
-                    '#ffc107',  // Amarelo para Próximo ao Vencimento
-                    '#dc3545'   // Vermelho para Expirado
-                ],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'right',
-                    labels: {
-                        padding: 10,
-                        usePointStyle: true,
-                        pointStyle: 'circle',
-                        font: {
-                            size: 11
-                        }
-                    }
-                },
-                tooltip: {
-                    callbacks: {
-                        label: function(context) {
-                            const label = context.label || '';
-                            const value = context.raw || 0;
-                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                            const percentage = Math.round((value / total) * 100);
-                            return `${label}: ${value} (${percentage}%)`;
-                        }
-                    }
-                }
-            }
-        }
-    });
-
-    // Monthly Chart
-    const monthlyCtx = document.getElementById('monthlyChart').getContext('2d');
-    const monthlyChart = new Chart(monthlyCtx, {
-        type: 'bar',
-        data: {
-            labels: {{ chart_data.meses_labels | tojson }},
+            labels: {{ meses|tojson }},
             datasets: [{
                 label: 'Certificados',
-                data: {{ chart_data.meses_data | tojson }},
-                backgroundColor: '#0d6efd',
-                borderWidth: 0,
-                borderRadius: 5
+                data: {{ dados|tojson }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
             }]
         },
         options: {
             responsive: true,
-            maintainAspectRatio: false,
             scales: {
                 y: {
-                    beginAtZero: true,
-                    ticks: {
-                        stepSize: 1
-                    },
-                    grid: {
-                        display: true,
-                        drawBorder: false
-                    }
-                },
-                x: {
-                    grid: {
-                        display: false
-                    }
-                }
-            },
-            plugins: {
-                legend: {
-                    display: false
+                    beginAtZero: true
                 }
             }
         }
     });
-
-    // Chart Type Toggle
-    document.querySelectorAll('[data-chart]').forEach(button => {
-        button.addEventListener('click', function() {
-            const chartType = this.dataset.chart;
-            const chartContainer = this.closest('.card-body');
-            const chartId = chartContainer.querySelector('canvas').id;
-            const chart = chartId === 'statusChart' ? statusChart : monthlyChart;
-
-            // Remove active class from all buttons in group
-            this.closest('.btn-group').querySelectorAll('.btn').forEach(btn => {
-                btn.classList.remove('active');
-            });
-            this.classList.add('active');
-
-            // Update chart type
-            chart.config.type = chartType;
-            chart.update();
-        });
-    });
-});
 </script>
-
-<style>
-.timeline {
-    position: relative;
-    padding-left: 1.5rem;
-}
-
-.timeline-item {
-    position: relative;
-    padding-bottom: 1.5rem;
-}
-
-.timeline-item:last-child {
-    padding-bottom: 0;
-}
-
-.timeline-marker {
-    position: absolute;
-    left: -0.5rem;
-    width: 1rem;
-    height: 1rem;
-    border-radius: 50%;
-    background-color: #0d6efd;
-}
-
-.timeline-content {
-    padding-left: 1rem;
-}
-
-.timeline-item:not(:last-child)::after {
-    content: '';
-    position: absolute;
-    left: -0.25rem;
-    top: 1rem;
-    bottom: 0;
-    width: 2px;
-    background-color: #e9ecef;
-}
-
-.bg-success { background-color: #28a745 !important; }
-.bg-warning { background-color: #ffc107 !important; }
-.bg-danger { background-color: #dc3545 !important; }
-.bg-info { background-color: #17a2b8 !important; }
-</style>
-{% endblock %}
 {% endblock %} 

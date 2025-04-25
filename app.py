@@ -15,6 +15,7 @@ from models import db, User, Certificado
 from werkzeug.utils import secure_filename
 from api import api_bp
 from werkzeug.exceptions import HTTPException
+import traceback
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -454,89 +455,54 @@ def exportar_certificados():
 @login_required
 def dashboard():
     try:
-        # Atualizar status dos certificados
-        Certificado.atualizar_status()
+        # Atualizar status de todos os certificados
+        Certificado.atualizar_status_todos()
         
-        # Estatísticas básicas
+        # Contar certificados por status
         stats = {
-            'total_certificados': Certificado.query.count(),
+            'total': Certificado.query.count(),
             'validos': Certificado.query.filter_by(status='Válido').count(),
-            'proximos_vencer': Certificado.query.filter_by(status='Próximo ao Vencimento').count(),
-            'expirados': Certificado.query.filter_by(status='Expirado').count(),
-            'ultima_atualizacao': datetime.now().strftime('%d/%m/%Y %H:%M')
+            'proximos': Certificado.query.filter_by(status='Próximo ao Vencimento').count(),
+            'expirados': Certificado.query.filter_by(status='Expirado').count()
         }
         
-        # Dados para os gráficos
-        chart_data = {
-            'status_labels': ['Válido', 'Próximo ao Vencimento', 'Expirado'],
-            'status_data': [
-                stats['validos'],
-                stats['proximos_vencer'],
-                stats['expirados']
-            ],
-            'meses_labels': [],
-            'meses_data': []
-        }
-        
-        # Dados por mês (últimos 6 meses)
-        hoje = datetime.now()
-        for i in range(5, -1, -1):
+        # Preparar dados para o gráfico
+        hoje = datetime.utcnow()
+        meses = []
+        for i in range(12):
             mes = hoje - timedelta(days=30*i)
-            mes_formatado = mes.strftime('%m/%Y')
-            chart_data['meses_labels'].append(mes_formatado)
-            
-            inicio_mes = mes.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-            fim_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
-            
+            meses.append(mes.strftime('%Y-%m'))
+        
+        # Contar certificados por mês
+        dados = []
+        for mes in meses:
+            inicio = datetime.strptime(mes, '%Y-%m')
+            fim = inicio + timedelta(days=30)
             count = Certificado.query.filter(
-                Certificado.data_validade >= inicio_mes,
-                Certificado.data_validade <= fim_mes
+                Certificado.data_validade >= inicio,
+                Certificado.data_validade < fim
             ).count()
-            
-            chart_data['meses_data'].append(count)
+            dados.append(count)
         
-        # Próximos vencimentos (próximos 30 dias)
-        proximos_vencimentos = Certificado.query.filter(
-            Certificado.data_validade >= datetime.now(),
-            Certificado.data_validade <= datetime.now() + timedelta(days=30)
-        ).order_by(Certificado.data_validade).all()
+        # Ordenar meses e dados
+        meses.reverse()
+        dados.reverse()
         
-        # Adicionar dias restantes a cada certificado
-        for cert in proximos_vencimentos:
-            cert.dias_restantes = (cert.data_validade - datetime.now()).days
+        # Buscar próximos vencimentos
+        vencimentos = Certificado.query.filter(
+            Certificado.data_validade > hoje
+        ).order_by(Certificado.data_validade).limit(5).all()
         
-        # Últimas atividades
-        ultimas_atividades = [
-            {
-                'tipo': 'success',
-                'titulo': 'Certificado Atualizado',
-                'descricao': 'Certificado da empresa XYZ foi atualizado',
-                'data': datetime.now() - timedelta(hours=2)
-            },
-            {
-                'tipo': 'warning',
-                'titulo': 'Certificado Próximo ao Vencimento',
-                'descricao': 'Certificado da empresa ABC vence em 15 dias',
-                'data': datetime.now() - timedelta(hours=5)
-            },
-            {
-                'tipo': 'danger',
-                'titulo': 'Certificado Expirado',
-                'descricao': 'Certificado da empresa 123 expirou',
-                'data': datetime.now() - timedelta(days=1)
-            }
-        ]
-        
-        return render_template('dashboard.html',
+        return render_template('dashboard.html', 
                              stats=stats,
-                             chart_data=chart_data,
-                             proximos_vencimentos=proximos_vencimentos,
-                             ultimas_atividades=ultimas_atividades)
+                             meses=meses,
+                             dados=dados,
+                             vencimentos=vencimentos)
                              
     except Exception as e:
         app.logger.error(f"Erro no dashboard: {str(e)}")
-        flash('Ocorreu um erro ao carregar o dashboard.', 'danger')
-        return redirect(url_for('index'))
+        app.logger.error(traceback.format_exc())
+        return render_template('error.html', error=str(e)), 500
 
 # Função para enviar email
 def enviar_email(destinatario, assunto, corpo):
