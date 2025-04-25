@@ -53,7 +53,9 @@ def init_db():
     with app.app_context():
         try:
             logger.info('Starting database initialization...')
-            db.create_all()
+            # Forçar a criação das tabelas na ordem correta
+            db.drop_all()  # Remove todas as tabelas existentes
+            db.create_all()  # Recria as tabelas na ordem correta
             
             # Create default admin user if it doesn't exist
             admin_user = User.query.filter_by(username='admin').first()
