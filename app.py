@@ -16,6 +16,7 @@ from werkzeug.utils import secure_filename
 from api import api_bp
 from werkzeug.exceptions import HTTPException
 import traceback
+import xml.etree.ElementTree as ET
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -682,6 +683,73 @@ def nova_senha():
                 return redirect(url_for('login'))
     
     return render_template('nova_senha.html')
+
+@app.route('/xml_upload')
+@login_required
+def xml_upload():
+    return render_template('xml_upload.html')
+
+@app.route('/upload_xml', methods=['POST'])
+@login_required
+def upload_xml():
+    try:
+        if 'xml_file' not in request.files:
+            flash('Nenhum arquivo enviado', 'danger')
+            return redirect(url_for('xml_upload'))
+            
+        file = request.files['xml_file']
+        if file.filename == '':
+            flash('Nenhum arquivo selecionado', 'danger')
+            return redirect(url_for('xml_upload'))
+            
+        if file and allowed_file(file.filename):
+            filename = secure_filename(file.filename)
+            filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+            file.save(filepath)
+            
+            # Processar o XML e extrair os dados
+            try:
+                tree = ET.parse(filepath)
+                root = tree.getroot()
+                
+                # Extrair dados do XML (ajuste conforme a estrutura do seu XML)
+                razao_social = root.find('.//razao_social').text
+                nome_fantasia = root.find('.//nome_fantasia').text
+                cnpj = root.find('.//cnpj').text
+                telefone = root.find('.//telefone').text
+                data_validade = datetime.strptime(root.find('.//data_validade').text, '%Y-%m-%d')
+                observacoes = request.form.get('observacoes', '')
+                
+                # Criar novo certificado
+                certificado = Certificado(
+                    razao_social=razao_social,
+                    nome_fantasia=nome_fantasia,
+                    cnpj=cnpj,
+                    telefone=telefone,
+                    data_validade=data_validade,
+                    observacoes=observacoes,
+                    user_id=current_user.id
+                )
+                
+                db.session.add(certificado)
+                db.session.commit()
+                
+                flash('Certificado cadastrado com sucesso!', 'success')
+                return redirect(url_for('listar_certificados'))
+                
+            except ET.ParseError:
+                flash('Erro ao processar o arquivo XML', 'danger')
+                return redirect(url_for('xml_upload'))
+            except Exception as e:
+                flash(f'Erro ao processar o XML: {str(e)}', 'danger')
+                return redirect(url_for('xml_upload'))
+        else:
+            flash('Tipo de arquivo não permitido. Apenas XML é aceito.', 'danger')
+            return redirect(url_for('xml_upload'))
+            
+    except Exception as e:
+        flash(f'Erro ao processar o upload: {str(e)}', 'danger')
+        return redirect(url_for('xml_upload'))
 
 # Manipulador de erros global
 @app.errorhandler(Exception)

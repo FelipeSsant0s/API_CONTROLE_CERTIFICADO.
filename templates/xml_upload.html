@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Envio de Arquivo XML</h4>
+                </div>
+                <div class="card-body">
+                    <form action="{{ url_for('upload_xml') }}" method="post" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label for="xml_file" class="form-label">Selecione o arquivo XML</label>
+                            <input type="file" class="form-control" id="xml_file" name="xml_file" accept=".xml" required>
+                            <div class="form-text">Apenas arquivos XML são permitidos.</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="observacoes" class="form-label">Observações (opcional)</label>
+                            <textarea class="form-control" id="observacoes" name="observacoes" rows="3"></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-upload me-2"></i>Enviar XML
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Instruções -->
+            <div class="card mt-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Instruções</h5>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li>Selecione um arquivo XML válido</li>
+                        <li>O arquivo deve conter as informações do certificado</li>
+                        <li>O sistema processará automaticamente os dados</li>
+                        <li>Após o processamento, você será redirecionado para a lista de certificados</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
