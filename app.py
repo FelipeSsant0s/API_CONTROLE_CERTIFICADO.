@@ -35,8 +35,8 @@ database_url = os.environ.get('DATABASE_URL')
 if database_url:
     # Render.com usa 'postgres://', mas SQLAlchemy requer 'postgresql://'
     database_url = database_url.replace('postgres://', 'postgresql://')
-    # Adicionar configurações de pool e reconexão
-    database_url += '?sslmode=require&pool_size=5&max_overflow=10&pool_timeout=30&pool_recycle=1800'
+    # Adicionar configuração SSL
+    database_url += '?sslmode=require'
 else:
     # Fallback para SQLite em desenvolvimento local
     database_url = 'sqlite:///certificados.db'
@@ -44,11 +44,11 @@ else:
 app.config['SQLALCHEMY_DATABASE_URI'] = database_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
-    'pool_pre_ping': True,  # Verifica a conexão antes de usar
-    'pool_recycle': 1800,   # Recicla conexões a cada 30 minutos
-    'pool_timeout': 30,     # Timeout de 30 segundos
-    'pool_size': 5,         # Tamanho do pool
-    'max_overflow': 10      # Máximo de conexões extras
+    'pool_size': 5,
+    'max_overflow': 10,
+    'pool_timeout': 30,
+    'pool_recycle': 1800,
+    'pool_pre_ping': True
 }
 
 # Initialize extensions
