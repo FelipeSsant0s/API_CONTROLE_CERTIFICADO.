@@ -469,14 +469,15 @@ def dashboard():
         # Preparar dados para o gráfico
         hoje = datetime.utcnow()
         meses = []
+        dados = []
+        
+        # Calcular os últimos 12 meses
         for i in range(12):
             mes = hoje - timedelta(days=30*i)
             meses.append(mes.strftime('%Y-%m'))
-        
-        # Contar certificados por mês
-        dados = []
-        for mes in meses:
-            inicio = datetime.strptime(mes, '%Y-%m')
+            
+            # Contar certificados para este mês
+            inicio = datetime.strptime(mes.strftime('%Y-%m'), '%Y-%m')
             fim = inicio + timedelta(days=30)
             count = Certificado.query.filter(
                 Certificado.data_validade >= inicio,
@@ -493,11 +494,16 @@ def dashboard():
             Certificado.data_validade > hoje
         ).order_by(Certificado.data_validade).limit(5).all()
         
+        # Calcular dias restantes para cada certificado
+        for cert in vencimentos:
+            cert.dias_restantes = (cert.data_validade - hoje).days
+        
         return render_template('dashboard.html', 
                              stats=stats,
                              meses=meses,
                              dados=dados,
-                             vencimentos=vencimentos)
+                             vencimentos=vencimentos,
+                             now=hoje)
                              
     except Exception as e:
         app.logger.error(f"Erro no dashboard: {str(e)}")
