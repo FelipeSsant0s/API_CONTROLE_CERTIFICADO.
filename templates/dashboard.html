@@ -40,9 +40,20 @@
         </div>
     </div>
 
-    <!-- Gráfico de Certificados por Mês -->
+    <!-- Gráficos -->
     <div class="row mb-4">
-        <div class="col-md-12">
+        <!-- Gráfico de Pizza - Distribuição de Status -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Distribuição de Status</h5>
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Gráfico de Linha - Certificados por Mês -->
+        <div class="col-md-8">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Certificados por Mês</h5>
@@ -52,9 +63,10 @@
         </div>
     </div>
 
-    <!-- Próximos Vencimentos -->
+    <!-- Próximos Vencimentos e Atividades Recentes -->
     <div class="row">
-        <div class="col-md-12">
+        <!-- Próximos Vencimentos -->
+        <div class="col-md-6">
             <div class="card">
                 <div class="card-body">
                     <h5 class="card-title">Próximos Vencimentos</h5>
@@ -63,7 +75,6 @@
                             <thead>
                                 <tr>
                                     <th>Razão Social</th>
-                                    <th>CNPJ</th>
                                     <th>Data de Validade</th>
                                     <th>Dias Restantes</th>
                                 </tr>
@@ -72,7 +83,6 @@
                                 {% for cert in vencimentos %}
                                 <tr>
                                     <td>{{ cert.razao_social }}</td>
-                                    <td>{{ cert.cnpj }}</td>
                                     <td>{{ cert.data_validade.strftime('%d/%m/%Y') }}</td>
                                     <td>
                                         <span class="badge bg-{{ 'warning' if cert.dias_restantes > 30 else 'danger' }}">
@@ -87,6 +97,27 @@
                 </div>
             </div>
         </div>
+
+        <!-- Atividades Recentes -->
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Atividades Recentes</h5>
+                    <div class="timeline">
+                        {% for cert in atividades %}
+                        <div class="timeline-item">
+                            <div class="timeline-marker bg-{{ 'success' if cert.status == 'Válido' else 'warning' if cert.status == 'Próximo ao Vencimento' else 'danger' }}"></div>
+                            <div class="timeline-content">
+                                <h6 class="mb-1">{{ cert.razao_social }}</h6>
+                                <p class="mb-1 small">CNPJ: {{ cert.cnpj }}</p>
+                                <small class="text-muted">Criado em {{ cert.data_emissao.strftime('%d/%m/%Y') }}</small>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}
@@ -95,31 +126,88 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const ctx = document.getElementById('certificadosChart').getContext('2d');
-    const chartData = {
-        labels: {{ meses|tojson|safe }},
-        datasets: [{
-            label: 'Certificados',
-            data: {{ dados|tojson|safe }},
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1
-        }]
-    };
-    
-    const chartOptions = {
-        responsive: true,
-        scales: {
-            y: {
-                beginAtZero: true
+    // Gráfico de Status (Pizza)
+    const statusCtx = document.getElementById('statusChart').getContext('2d');
+    new Chart(statusCtx, {
+        type: 'pie',
+        data: {
+            labels: {{ status_data.labels|tojson|safe }},
+            datasets: [{
+                data: {{ status_data.data|tojson|safe }},
+                backgroundColor: {{ status_data.colors|tojson|safe }},
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: {
+                    position: 'right'
+                }
             }
         }
-    };
-    
-    new Chart(ctx, {
+    });
+
+    // Gráfico de Certificados por Mês (Linha)
+    const certCtx = document.getElementById('certificadosChart').getContext('2d');
+    new Chart(certCtx, {
         type: 'line',
-        data: chartData,
-        options: chartOptions
+        data: {
+            labels: {{ meses|tojson|safe }},
+            datasets: [{
+                label: 'Certificados',
+                data: {{ dados|tojson|safe }},
+                borderColor: 'rgb(75, 192, 192)',
+                tension: 0.1
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true
+                }
+            }
+        }
     });
 });
 </script>
+
+<style>
+.timeline {
+    position: relative;
+    padding-left: 1.5rem;
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 1.5rem;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -0.5rem;
+    width: 1rem;
+    height: 1rem;
+    border-radius: 50%;
+}
+
+.timeline-content {
+    padding-left: 1rem;
+}
+
+.timeline-item:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: -0.25rem;
+    top: 1rem;
+    bottom: 0;
+    width: 2px;
+    background-color: #e9ecef;
+}
+</style>
 {% endblock %} 

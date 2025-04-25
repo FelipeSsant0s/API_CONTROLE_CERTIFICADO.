@@ -466,7 +466,14 @@ def dashboard():
             'expirados': Certificado.query.filter_by(status='Expirado').count()
         }
         
-        # Preparar dados para o gráfico
+        # Dados para o gráfico de pizza
+        status_data = {
+            'labels': ['Válidos', 'Próximos ao Vencimento', 'Expirados'],
+            'data': [stats['validos'], stats['proximos'], stats['expirados']],
+            'colors': ['#28a745', '#ffc107', '#dc3545']
+        }
+        
+        # Preparar dados para o gráfico de linha (certificados por mês)
         hoje = datetime.utcnow()
         meses = []
         dados = []
@@ -497,12 +504,17 @@ def dashboard():
         # Calcular dias restantes para cada certificado
         for cert in vencimentos:
             cert.dias_restantes = (cert.data_validade - hoje).days
+            
+        # Buscar atividades recentes (últimos 5 certificados criados ou atualizados)
+        atividades = Certificado.query.order_by(Certificado.data_emissao.desc()).limit(5).all()
         
         return render_template('dashboard.html', 
                              stats=stats,
+                             status_data=status_data,
                              meses=meses,
                              dados=dados,
                              vencimentos=vencimentos,
+                             atividades=atividades,
                              now=hoje)
                              
     except Exception as e:
