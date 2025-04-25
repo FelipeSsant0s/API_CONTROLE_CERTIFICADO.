@@ -16,18 +16,35 @@ logger = logging.getLogger(__name__)
 def token_required(f):
     @wraps(f)
     def decorated(*args, **kwargs):
-        token = request.headers.get('Authorization')
-        if not token:
-            return jsonify({'message': 'Token não fornecido'}), 401
-        
         try:
-            token = token.split(' ')[1]  # Remove o 'Bearer ' do token
-            data = jwt.decode(token, os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key'), algorithms=['HS256'])
-            current_user = User.query.get(data['user_id'])
-        except:
-            return jsonify({'message': 'Token inválido'}), 401
-        
-        return f(current_user, *args, **kwargs)
+            token = request.headers.get('Authorization')
+            if not token:
+                logger.warning('No token provided')
+                return jsonify({'message': 'Token não fornecido'}), 401
+            
+            try:
+                token = token.split(' ')[1]  # Remove o 'Bearer ' do token
+                logger.debug(f'Decoding token: {token}')
+                data = jwt.decode(token, os.environ.get('JWT_SECRET_KEY', 'jwt-secret-key'), algorithms=['HS256'])
+                logger.debug(f'Token data: {data}')
+                current_user = User.query.get(data['user_id'])
+                if not current_user:
+                    logger.warning(f'User not found for id: {data["user_id"]}')
+                    return jsonify({'message': 'Usuário não encontrado'}), 401
+            except jwt.ExpiredSignatureError:
+                logger.warning('Token expired')
+                return jsonify({'message': 'Token expirado'}), 401
+            except jwt.InvalidTokenError as e:
+                logger.warning(f'Invalid token: {str(e)}')
+                return jsonify({'message': 'Token inválido'}), 401
+            except Exception as e:
+                logger.error(f'Error processing token: {str(e)}')
+                return jsonify({'message': 'Erro ao processar token'}), 401
+            
+            return f(current_user, *args, **kwargs)
+        except Exception as e:
+            logger.error(f'Unexpected error in token_required: {str(e)}')
+            return jsonify({'message': 'Erro interno do servidor'}), 500
     return decorated
 
 # API Routes
