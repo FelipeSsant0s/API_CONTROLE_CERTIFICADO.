@@ -46,14 +46,35 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, faça login para acessar esta página.'
 login_manager.login_message_category = 'info'
 
-# Initialize database
-try:
+# Initialize database and create admin user
+def init_db():
     with app.app_context():
-        db.create_all()
-        logger.info('Database initialized successfully')
-except Exception as e:
-    logger.error(f'Error initializing database: {str(e)}')
-    raise
+        try:
+            logger.info('Starting database initialization...')
+            db.create_all()
+            
+            # Create default admin user if it doesn't exist
+            admin_user = User.query.filter_by(username='admin').first()
+            if not admin_user:
+                admin = User(
+                    username='admin',
+                    email='admin@certificados.com',
+                    name='Administrador'
+                )
+                admin.set_password('Admin@123')
+                db.session.add(admin)
+                db.session.commit()
+                logger.info('Default admin user created')
+            else:
+                logger.info('Admin user already exists')
+            
+            logger.info('Database initialization completed successfully')
+        except Exception as e:
+            logger.error(f'Error in database initialization: {str(e)}')
+            raise
+
+# Call init_db to ensure database is initialized
+init_db()
 
 # Register blueprints
 app.register_blueprint(api_bp, url_prefix='/api')
@@ -652,6 +673,16 @@ def handle_exception(e):
     logger.error(f"Erro não tratado: {str(e)}", exc_info=True)
     if isinstance(e, HTTPException):
         return render_template(f'{e.code}.html'), e.code
+    
+    # Log detalhado do erro
+    logger.error("Detalhes do erro:")
+    logger.error(f"Tipo do erro: {type(e)}")
+    logger.error(f"Stack trace: {e.__traceback__}")
+    
+    # Verifica se é um erro de banco de dados
+    if hasattr(e, 'orig') and e.orig:
+        logger.error(f"Erro original: {e.orig}")
+    
     return render_template('500.html', error=str(e)), 500
 
 @app.errorhandler(404)
@@ -663,6 +694,7 @@ def not_found_error(error):
 def internal_error(error):
     db.session.rollback()
     logger.error("Erro interno do servidor", exc_info=True)
+    logger.error(f"Detalhes do erro: {str(error)}")
     return render_template('500.html', error=str(error)), 500
 
 # Middleware para logging de requisições
@@ -672,6 +704,7 @@ def log_request_info():
     logger.debug('Body: %s', request.get_data())
     logger.debug('URL: %s', request.url)
     logger.debug('Method: %s', request.method)
+    logger.debug('Session: %s', session)
 
 @app.after_request
 def log_response_info(response):
