@@ -18,6 +18,7 @@ from werkzeug.exceptions import HTTPException
 import traceback
 import xml.etree.ElementTree as ET
 import sqlalchemy
+from sqlalchemy import text
 
 # Configure logging
 logging.basicConfig(level=logging.DEBUG)
@@ -859,8 +860,8 @@ def shutdown_session(exception=None):
 @app.before_request
 def before_request():
     try:
-        # Verifica se a conexão está ativa
-        db.session.execute('SELECT 1')
+        # Verifica se a conexão está ativa usando text()
+        db.session.execute(text('SELECT 1'))
     except Exception as e:
         logger.error(f"Erro na conexão com o banco: {str(e)}")
         db.session.rollback()
