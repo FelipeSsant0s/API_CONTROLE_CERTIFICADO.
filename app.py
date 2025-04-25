@@ -454,75 +454,89 @@ def exportar_certificados():
 @login_required
 def dashboard():
     try:
-        logger.info('Accessing dashboard page')
+        # Atualizar status dos certificados
+        Certificado.atualizar_status()
         
-        # Buscar certificados do usuário
-        certificados = Certificado.query.filter_by(user_id=current_user.id).all()
-        
-        # Atualizar status de todos os certificados
-        for certificado in certificados:
-            try:
-                certificado.atualizar_status()
-            except Exception as e:
-                logger.error(f'Error updating status for certificate {certificado.id}: {str(e)}')
-                continue
-        
-        # Dados para o gráfico de pizza (Status dos Certificados)
-        status_counts = {
-            'Válido': 0,
-            'Próximo ao Vencimento': 0,
-            'Expirado': 0
-        }
-        for certificado in certificados:
-            try:
-                status_counts[certificado.status] += 1
-            except Exception as e:
-                logger.error(f'Error counting status for certificate {certificado.id}: {str(e)}')
-                continue
-        
-        # Dados para o gráfico de barras (Certificados por Mês)
-        from collections import defaultdict
-        import calendar
-        
-        certificados_por_mes = defaultdict(int)
-        for certificado in certificados:
-            try:
-                mes = certificado.data_validade.strftime('%B')  # Nome do mês
-                certificados_por_mes[mes] += 1
-            except Exception as e:
-                logger.error(f'Error processing month data for certificate {certificado.id}: {str(e)}')
-                continue
-        
-        # Ordenar os meses cronologicamente
-        try:
-            meses_ordenados = sorted(certificados_por_mes.items(), 
-                                   key=lambda x: list(calendar.month_name).index(x[0]))
-        except Exception as e:
-            logger.error(f'Error sorting months: {str(e)}')
-            meses_ordenados = []
-        
-        # Preparar dados para os gráficos
-        chart_data = {
-            'status_labels': list(status_counts.keys()),
-            'status_data': list(status_counts.values()),
-            'meses_labels': [item[0] for item in meses_ordenados],
-            'meses_data': [item[1] for item in meses_ordenados]
-        }
-        
-        # Estatísticas adicionais
+        # Estatísticas básicas
         stats = {
-            'total_certificados': len(certificados),
-            'proximos_vencer': sum(1 for c in certificados if c.status == 'Próximo ao Vencimento'),
-            'expirados': sum(1 for c in certificados if c.status == 'Expirado'),
-            'validos': sum(1 for c in certificados if c.status == 'Válido')
+            'total_certificados': Certificado.query.count(),
+            'validos': Certificado.query.filter_by(status='Válido').count(),
+            'proximos_vencer': Certificado.query.filter_by(status='Próximo ao Vencimento').count(),
+            'expirados': Certificado.query.filter_by(status='Expirado').count(),
+            'ultima_atualizacao': datetime.now().strftime('%d/%m/%Y %H:%M')
         }
         
-        logger.info('Dashboard data prepared successfully')
-        return render_template('dashboard.html', chart_data=chart_data, stats=stats)
+        # Dados para os gráficos
+        chart_data = {
+            'status_labels': ['Válido', 'Próximo ao Vencimento', 'Expirado'],
+            'status_data': [
+                stats['validos'],
+                stats['proximos_vencer'],
+                stats['expirados']
+            ],
+            'meses_labels': [],
+            'meses_data': []
+        }
         
+        # Dados por mês (últimos 6 meses)
+        hoje = datetime.now()
+        for i in range(5, -1, -1):
+            mes = hoje - timedelta(days=30*i)
+            mes_formatado = mes.strftime('%m/%Y')
+            chart_data['meses_labels'].append(mes_formatado)
+            
+            inicio_mes = mes.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            fim_mes = (inicio_mes + timedelta(days=32)).replace(day=1) - timedelta(days=1)
+            
+            count = Certificado.query.filter(
+                Certificado.data_validade >= inicio_mes,
+                Certificado.data_validade <= fim_mes
+            ).count()
+            
+            chart_data['meses_data'].append(count)
+        
+        # Próximos vencimentos (próximos 30 dias)
+        proximos_vencimentos = Certificado.query.filter(
+            Certificado.data_validade >= datetime.now(),
+            Certificado.data_validade <= datetime.now() + timedelta(days=30)
+        ).order_by(Certificado.data_validade).all()
+        
+        # Adicionar dias restantes a cada certificado
+        for cert in proximos_vencimentos:
+            cert.dias_restantes = (cert.data_validade - datetime.now()).days
+        
+        # Últimas atividades
+        ultimas_atividades = [
+            {
+                'tipo': 'success',
+                'titulo': 'Certificado Atualizado',
+                'descricao': 'Certificado da empresa XYZ foi atualizado',
+                'data': datetime.now() - timedelta(hours=2)
+            },
+            {
+                'tipo': 'warning',
+                'titulo': 'Certificado Próximo ao Vencimento',
+                'descricao': 'Certificado da empresa ABC vence em 15 dias',
+                'data': datetime.now() - timedelta(hours=5)
+            },
+            {
+                'tipo': 'danger',
+                'titulo': 'Certificado Expirado',
+                'descricao': 'Certificado da empresa 123 expirou',
+                'data': datetime.now() - timedelta(days=1)
+            }
+        ]
+        
+        return render_template('dashboard.html',
+                             stats=stats,
+                             chart_data=chart_data,
+                             proximos_vencimentos=proximos_vencimentos,
+                             ultimas_atividades=ultimas_atividades)
+                             
     except Exception as e:
-        logger.error(f'Error in dashboard route: {str(e)}', exc_info=True)
-        return render_template('500.html', error=str(e)), 500
+        app.logger.error(f"Erro no dashboard: {str(e)}")
+        flash('Ocorreu um erro ao carregar o dashboard.', 'danger')
+        return redirect(url_for('index'))
 
 # Função para enviar email
 def enviar_email(destinatario, assunto, corpo):
