@@ -899,12 +899,12 @@ def handle_exception(e):
     if isinstance(e, HTTPException):
         return render_template(f'{e.code}.html'), e.code
     
-    return render_template('500.html', error=str(e)), 500
+    return render_template('erro.html', error=str(e)), 500
 
 @app.errorhandler(404)
 def not_found_error(error):
     logger.error(f"Página não encontrada: {request.url}")
-    return render_template('404.html'), 404
+    return render_template('erro.html', error="Página não encontrada"), 404
 
 @app.errorhandler(500)
 def internal_error(error):
@@ -912,7 +912,7 @@ def internal_error(error):
     logger.error("Erro interno do servidor", exc_info=True)
     logger.error(f"Detalhes do erro: {str(error)}")
     logger.error(f"Stack trace: {error.__traceback__}")
-    return render_template('500.html', error=str(error)), 500
+    return render_template('erro.html', error=str(error)), 500
 
 # Middleware para logging de requisições
 @app.before_request
