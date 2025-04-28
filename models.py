@@ -7,7 +7,7 @@ import secrets
 db = SQLAlchemy()
 
 class User(UserMixin, db.Model):
-    __tablename__ = 'users'
+    __tablename__ = 'user'
     
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(80), unique=True, nullable=False)
@@ -35,8 +35,7 @@ class Empresa(db.Model):
     email = db.Column(db.String(120))
     url_integracao = db.Column(db.String(100), unique=True, nullable=False)
     ativo = db.Column(db.Boolean, default=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    certificados = db.relationship('Certificado', backref='empresa', lazy=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -48,15 +47,15 @@ class Certificado(db.Model):
     __tablename__ = 'certificados'
     
     id = db.Column(db.Integer, primary_key=True)
-    empresa_id = db.Column(db.Integer, db.ForeignKey('empresas.id'), nullable=False)
     razao_social = db.Column(db.String(200), nullable=False)
     nome_fantasia = db.Column(db.String(200))
     cnpj = db.Column(db.String(18), nullable=False)
     telefone = db.Column(db.String(20))
+    data_emissao = db.Column(db.DateTime, default=datetime.utcnow)
     data_validade = db.Column(db.DateTime, nullable=False)
     status = db.Column(db.String(50), default='Válido')
     observacoes = db.Column(db.Text)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
