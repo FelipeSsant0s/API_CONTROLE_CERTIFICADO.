@@ -64,24 +64,21 @@ def init_db():
     with app.app_context():
         try:
             logger.info('Starting database initialization...')
-            # Forçar a criação das tabelas na ordem correta
-            db.drop_all()  # Remove todas as tabelas existentes
-            db.create_all()  # Recria as tabelas na ordem correta
+            # Recriar todas as tabelas
+            db.drop_all()
+            db.create_all()
+            logger.info('Database tables created successfully')
             
-            # Create default admin user if it doesn't exist
-            admin_user = User.query.filter_by(username='admin').first()
-            if not admin_user:
-                admin = User(
-                    username='admin',
-                    email='admin@certificados.com',
-                    name='Administrador'
-                )
-                admin.set_password('Admin@123')
-                db.session.add(admin)
-                db.session.commit()
-                logger.info('Default admin user created')
-            else:
-                logger.info('Admin user already exists')
+            # Create default admin user
+            admin = User(
+                username='admin',
+                email='admin@certificados.com',
+                name='Administrador'
+            )
+            admin.set_password('Admin@123')
+            db.session.add(admin)
+            db.session.commit()
+            logger.info('Default admin user created')
             
             logger.info('Database initialization completed successfully')
         except Exception as e:
