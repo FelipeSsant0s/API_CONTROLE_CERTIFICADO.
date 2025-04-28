@@ -64,8 +64,14 @@ def init_db():
     with app.app_context():
         try:
             logger.info('Starting database initialization...')
+            # Excluir tabelas na ordem correta
+            db.session.execute('DROP TABLE IF EXISTS certificados CASCADE')
+            db.session.execute('DROP TABLE IF EXISTS empresas CASCADE')
+            db.session.execute('DROP TABLE IF EXISTS user CASCADE')
+            db.session.execute('DROP TABLE IF EXISTS recuperacao_senha CASCADE')
+            db.session.commit()
+            
             # Recriar todas as tabelas
-            db.drop_all()
             db.create_all()
             logger.info('Database tables created successfully')
             
