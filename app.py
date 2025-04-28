@@ -67,7 +67,7 @@ def init_db():
             # Excluir tabelas na ordem correta
             db.session.execute(text('DROP TABLE IF EXISTS certificados CASCADE'))
             db.session.execute(text('DROP TABLE IF EXISTS empresas CASCADE'))
-            db.session.execute(text('DROP TABLE IF EXISTS user CASCADE'))
+            db.session.execute(text('DROP TABLE IF EXISTS "user" CASCADE'))
             db.session.execute(text('DROP TABLE IF EXISTS recuperacao_senha CASCADE'))
             db.session.commit()
             
